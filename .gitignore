@@ -1,0 +1,7 @@
+/vendor/
+/node_modules/
+/storage/logs/*
+/storage/uploads/*
+.env
+.DS_Store
+Thumbs.db

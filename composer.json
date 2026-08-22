@@ -1,0 +1,11 @@
+{
+    "name": "arvand/audio-store",
+    "description": "Arvand Audio Store - PHP MVC E-commerce Project",
+    "type": "project",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    }
+}
