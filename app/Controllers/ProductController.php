@@ -24,37 +24,219 @@ final class ProductController extends Controller
         $this->brands = new Brand();
     }
 
+    /**
+     * نمایش محصولات و فیلترها
+     *
+     * پشتیبانی از:
+     * - search
+     * - category
+     * - brand
+     * - min_price
+     * - max_price
+     * - sort
+     * - in_stock
+     */
     public function index(): void
     {
+        /*
+        |--------------------------------------------------------------------------
+        | Search
+        |--------------------------------------------------------------------------
+        */
+
         $search = trim(
             (string) ($_GET['search'] ?? '')
         );
 
-        if ($search !== '') {
-            $products = $this->products->search(
-                $search,
-                24
+        /*
+        |--------------------------------------------------------------------------
+        | Category
+        |--------------------------------------------------------------------------
+        */
+
+        $categorySlug = trim(
+            (string) ($_GET['category'] ?? '')
+        );
+
+        $category = null;
+
+        if ($categorySlug !== '') {
+            $category = $this->categories->findBySlug(
+                $categorySlug
             );
-        } else {
-            $products = $this->products->getActiveProducts(
-                24
-            );
+
+            if ($category === null) {
+                $this->notFound();
+            }
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Brand
+        |--------------------------------------------------------------------------
+        */
+
+        $brandSlug = trim(
+            (string) ($_GET['brand'] ?? '')
+        );
+
+        $brand = null;
+
+        if ($brandSlug !== '') {
+            $brand = $this->brands->findBySlug(
+                $brandSlug
+            );
+
+            if ($brand === null) {
+                $this->notFound();
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Price
+        |--------------------------------------------------------------------------
+        */
+
+        $minPrice = $this->getPriceFilter(
+            $_GET['min_price'] ?? null
+        );
+
+        $maxPrice = $this->getPriceFilter(
+            $_GET['max_price'] ?? null
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | اگر حداقل قیمت از حداکثر بیشتر باشد،
+        | آن‌ها را جابه‌جا می‌کنیم.
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $minPrice !== null
+            && $maxPrice !== null
+            && $minPrice > $maxPrice
+        ) {
+            [$minPrice, $maxPrice] = [
+                $maxPrice,
+                $minPrice,
+            ];
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Sort
+        |--------------------------------------------------------------------------
+        */
+
+        $allowedSorts = [
+            'newest',
+            'price_asc',
+            'price_desc',
+            'name_asc',
+            'name_desc',
+        ];
+
+        $sort = (string) (
+            $_GET['sort'] ?? 'newest'
+        );
+
+        if (!in_array(
+            $sort,
+            $allowedSorts,
+            true
+        )) {
+            $sort = 'newest';
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Stock
+        |--------------------------------------------------------------------------
+        */
+
+        $inStock = isset($_GET['in_stock'])
+            && (
+                $_GET['in_stock'] === '1'
+                || $_GET['in_stock'] === 1
+                || $_GET['in_stock'] === true
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Filters
+        |--------------------------------------------------------------------------
+        */
+
+        $filters = [
+            'search' => $search,
+            'category_id' => $category !== null
+                ? (int) $category['id']
+                : 0,
+
+            'brand_id' => $brand !== null
+                ? (int) $brand['id']
+                : 0,
+
+            'min_price' => $minPrice,
+            'max_price' => $maxPrice,
+            'sort' => $sort,
+            'in_stock' => $inStock,
+        ];
+
+        /*
+        |--------------------------------------------------------------------------
+        | دریافت محصولات
+        |--------------------------------------------------------------------------
+        */
+
+        $products = $this->products->filter(
+            $filters,
+            24
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | View
+        |--------------------------------------------------------------------------
+        */
 
         $this->view('products/index', [
             'title' => 'محصولات',
+
             'products' => $products,
+
             'categories' =>
                 $this->categories->getActiveCategories(),
+
             'brands' =>
                 $this->brands->getActiveBrands(),
+
             'search' => $search,
+
+            'selectedCategory' => $categorySlug,
+
+            'selectedBrand' => $brandSlug,
+
+            'selectedMinPrice' => $minPrice,
+
+            'selectedMaxPrice' => $maxPrice,
+
+            'selectedSort' => $sort,
+
+            'inStock' => $inStock,
         ]);
     }
 
+    /**
+     * نمایش جزئیات محصول
+     */
     public function show(string $slug): void
     {
-        $product = $this->products->findBySlug($slug);
+        $product = $this->products->findBySlug(
+            $slug
+        );
 
         if ($product === null) {
             $this->notFound();
@@ -66,6 +248,9 @@ final class ProductController extends Controller
         ]);
     }
 
+    /**
+     * نمایش محصولات یک دسته‌بندی
+     */
     public function category(string $slug): void
     {
         $category = $this->categories->findBySlug(
@@ -88,6 +273,9 @@ final class ProductController extends Controller
         ]);
     }
 
+    /**
+     * نمایش محصولات یک برند
+     */
     public function brand(string $slug): void
     {
         $brand = $this->brands->findBySlug(
@@ -110,11 +298,38 @@ final class ProductController extends Controller
         ]);
     }
 
+    /**
+     * تبدیل ورودی قیمت به مقدار معتبر
+     */
+    private function getPriceFilter(
+        mixed $value
+    ): ?float {
+        if (
+            $value === null
+            || $value === ''
+            || !is_numeric($value)
+        ) {
+            return null;
+        }
+
+        $price = (float) $value;
+
+        if ($price < 0) {
+            return null;
+        }
+
+        return $price;
+    }
+
+    /**
+     * نمایش صفحه 404
+     */
     private function notFound(): never
     {
         http_response_code(404);
 
         echo '404 - محصول یا صفحه مورد نظر پیدا نشد.';
+
         exit;
     }
 }

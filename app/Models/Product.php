@@ -379,4 +379,255 @@ final class Product extends Model
 
         return (int) $stock >= $quantity;
     }
+
+    /**
+ * دریافت محصولات با فیلترهای ترکیبی
+ *
+ * فیلترهای قابل استفاده:
+ * - search
+ * - category_id
+ * - brand_id
+ * - min_price
+ * - max_price
+ * - in_stock
+ * - sort
+ */
+public function filter(array $filters = [], int $limit = 12): array
+{
+    $limit = max(1, min($limit, 100));
+
+    $where = [
+        "p.status = 'active'",
+        "c.status = 1",
+        "b.status = 1",
+    ];
+
+    $params = [];
+
+    /*
+    |--------------------------------------------------------------------------
+    | Search
+    |--------------------------------------------------------------------------
+    */
+
+    $search = trim(
+        (string) ($filters['search'] ?? '')
+    );
+
+    if ($search !== '') {
+        $where[] = "
+            (
+                p.name LIKE :search_name
+                OR p.sku LIKE :search_sku
+                OR p.description LIKE :search_description
+                OR b.name LIKE :search_brand
+                OR c.name LIKE :search_category
+            )
+        ";
+
+        $searchValue = '%' . $search . '%';
+
+        $params[':search_name'] = $searchValue;
+        $params[':search_sku'] = $searchValue;
+        $params[':search_description'] = $searchValue;
+        $params[':search_brand'] = $searchValue;
+        $params[':search_category'] = $searchValue;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Category
+    |--------------------------------------------------------------------------
+    */
+
+    $categoryId = (int) ($filters['category_id'] ?? 0);
+
+    if ($categoryId > 0) {
+        $where[] = "p.category_id = :category_id";
+
+        $params[':category_id'] = $categoryId;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Brand
+    |--------------------------------------------------------------------------
+    */
+
+    $brandId = (int) ($filters['brand_id'] ?? 0);
+
+    if ($brandId > 0) {
+        $where[] = "p.brand_id = :brand_id";
+
+        $params[':brand_id'] = $brandId;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Minimum Price
+    |--------------------------------------------------------------------------
+    */
+
+    $minPrice = $filters['min_price'] ?? null;
+
+    if (
+        $minPrice !== null
+        && $minPrice !== ''
+        && is_numeric($minPrice)
+        && (float) $minPrice >= 0
+    ) {
+        $where[] = "
+            COALESCE(
+                NULLIF(p.discount_price, 0),
+                p.price
+            ) >= :min_price
+        ";
+
+        $params[':min_price'] = (float) $minPrice;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Maximum Price
+    |--------------------------------------------------------------------------
+    */
+
+    $maxPrice = $filters['max_price'] ?? null;
+
+    if (
+        $maxPrice !== null
+        && $maxPrice !== ''
+        && is_numeric($maxPrice)
+        && (float) $maxPrice >= 0
+    ) {
+        $where[] = "
+            COALESCE(
+                NULLIF(p.discount_price, 0),
+                p.price
+            ) <= :max_price
+        ";
+
+        $params[':max_price'] = (float) $maxPrice;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | فقط محصولات موجود
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        isset($filters['in_stock'])
+        && (
+            $filters['in_stock'] === true
+            || (int) $filters['in_stock'] === 1
+        )
+    ) {
+        $where[] = "p.stock > 0";
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sort
+    |--------------------------------------------------------------------------
+    |
+    | مقدار sort مستقیماً وارد SQL نمی‌شود.
+    | فقط مقادیر مشخص‌شده در whitelist مجاز هستند.
+    |
+    */
+
+    $sort = (string) ($filters['sort'] ?? 'newest');
+
+    $orderBy = match ($sort) {
+        'price_asc' => "
+            COALESCE(
+                NULLIF(p.discount_price, 0),
+                p.price
+            ) ASC,
+            p.id DESC
+        ",
+
+        'price_desc' => "
+            COALESCE(
+                NULLIF(p.discount_price, 0),
+                p.price
+            ) DESC,
+            p.id DESC
+        ",
+
+        'name_asc' => "
+            p.name ASC,
+            p.id DESC
+        ",
+
+        'name_desc' => "
+            p.name DESC,
+            p.id DESC
+        ",
+
+        default => "
+            p.id DESC
+        ",
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | Query
+    |--------------------------------------------------------------------------
+    */
+
+    $sql = "
+        SELECT
+            p.*,
+            b.name AS brand_name,
+            b.slug AS brand_slug,
+            c.name AS category_name,
+            c.slug AS category_slug
+        FROM products p
+
+        INNER JOIN brands b
+            ON p.brand_id = b.id
+
+        INNER JOIN categories c
+            ON p.category_id = c.id
+
+        WHERE " . implode(
+            ' AND ',
+            $where
+        ) . "
+
+        ORDER BY
+            {$orderBy}
+
+        LIMIT :limit
+    ";
+
+    $stmt = $this->db->prepare($sql);
+
+    foreach ($params as $key => $value) {
+        if (is_int($value)) {
+            $stmt->bindValue(
+                $key,
+                $value,
+                PDO::PARAM_INT
+            );
+        } else {
+            $stmt->bindValue(
+                $key,
+                $value
+            );
+        }
+    }
+
+    $stmt->bindValue(
+        ':limit',
+        $limit,
+        PDO::PARAM_INT
+    );
+
+    $stmt->execute();
+
+    return $stmt->fetchAll();
+}
+
 }
