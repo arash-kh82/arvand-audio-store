@@ -1,0 +1,8 @@
+DirectoryIndex index.php
+
+RewriteEngine On
+
+# اگر فایل یا پوشه واقعی وجود ندارد، درخواست را به front controller بفرست
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
