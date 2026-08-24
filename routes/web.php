@@ -67,3 +67,18 @@ $router->post(
     '/cart/clear',
     [CartController::class, 'clear']
 );
+
+$router->get(
+    '/checkout',
+    [App\Controllers\CheckoutController::class, 'index']
+);
+
+$router->post(
+    '/checkout',
+    [App\Controllers\CheckoutController::class, 'store']
+);
+
+$router->get(
+    '/orders/{id}',
+    [App\Controllers\OrderController::class, 'show']
+);
