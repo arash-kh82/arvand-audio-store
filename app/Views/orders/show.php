@@ -10,6 +10,10 @@ $items = is_array($items ?? null)
     ? $items
     : [];
 
+$address = is_array($address ?? null)
+    ? $address
+    : null;
+    
 $orderNumber = (string) (
     $order['order_number'] ?? ''
 );
@@ -250,6 +254,100 @@ $paymentStatusText =
         </div>
 
     </div>
+
+    <!-- ====== ADDRESS SECTION INSERTED HERE ====== -->
+    <?php if ($address !== null): ?>
+
+        <div class="box">
+
+            <h2>
+                آدرس ارسال
+            </h2>
+
+            <?php if (!empty($address['title'])): ?>
+
+                <div class="order-number">
+                    <?= htmlspecialchars(
+                        (string) $address['title'],
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>
+                </div>
+
+            <?php endif; ?>
+
+            <div class="meta">
+                گیرنده:
+                <?= htmlspecialchars(
+                    (string) (
+                        $address['receiver_name'] ?? ''
+                    ),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>
+            </div>
+
+            <div class="meta">
+                تلفن:
+                <?= htmlspecialchars(
+                    (string) (
+                        $address['phone'] ?? ''
+                    ),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>
+            </div>
+
+            <div class="meta">
+                استان:
+                <?= htmlspecialchars(
+                    (string) (
+                        $address['province'] ?? ''
+                    ),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>
+            </div>
+
+            <div class="meta">
+                شهر:
+                <?= htmlspecialchars(
+                    (string) (
+                        $address['city'] ?? ''
+                    ),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>
+            </div>
+
+            <div class="meta">
+                آدرس:
+                <?= htmlspecialchars(
+                    (string) (
+                        $address['address'] ?? ''
+                    ),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>
+            </div>
+
+            <?php if (!empty($address['postal_code'])): ?>
+
+                <div class="meta">
+                    کد پستی:
+                    <?= htmlspecialchars(
+                        (string) $address['postal_code'],
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>
+                </div>
+
+            <?php endif; ?>
+
+        </div>
+
+    <?php endif; ?>
+    <!-- ====== END OF ADDRESS SECTION ====== -->
 
     <div class="box">
 

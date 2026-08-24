@@ -13,7 +13,7 @@ final class Order extends Model
     /**
      * ثبت سفارش از روی سبد خرید کاربر
      */
-    public function createFromCart(int $userId): int
+    public function createFromCart(int $userId,int $addressId): int
     {
         if ($userId <= 0) {
             throw new RuntimeException(
@@ -125,7 +125,7 @@ final class Order extends Model
                     updated_at
                 ) VALUES (
                     :user_id,
-                    NULL,
+                    :address_id,
                     :order_number,
                     :status,
                     :payment_status,
@@ -140,6 +140,7 @@ final class Order extends Model
 
             $stmt->execute([
                 ':user_id' => $userId,
+                ':address_id' => $addressId,
                 ':order_number' => $orderNumber,
                 ':status' => 'pending',
                 ':payment_status' => 'pending',

@@ -6,6 +6,10 @@ $items = is_array($items ?? null)
     ? $items
     : [];
 
+$addresses = is_array($addresses ?? null)
+    ? $addresses
+    : [];
+
 $totalQuantity = (int) ($totalQuantity ?? 0);
 $itemCount = (int) ($itemCount ?? 0);
 $total = (float) ($total ?? 0);
@@ -32,216 +36,327 @@ $total = (float) ($total ?? 0);
         ) ?>
     </title>
 
-    <style>
-
-        body {
-            font-family: Tahoma, Arial, sans-serif;
-            background: #f5f5f5;
-            margin: 0;
-            padding: 30px;
-            color: #222;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
-        .box {
-            background: #fff;
-            padding: 25px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-
-        h1 {
-            margin-top: 0;
-        }
-
-        .item {
-            padding: 15px 0;
-            border-bottom: 1px solid #eee;
-        }
-
-        .item:last-child {
-            border-bottom: 0;
-        }
-
-        .item-name {
-            font-weight: bold;
-            margin-bottom: 8px;
-        }
-
-        .meta {
-            color: #666;
-            font-size: 14px;
-            margin-top: 5px;
-        }
-
-        .summary {
-            margin-top: 20px;
-        }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 12px;
-        }
-
-        .total {
-            border-top: 1px solid #ddd;
-            padding-top: 15px;
-            margin-top: 15px;
-            font-size: 20px;
-            font-weight: bold;
-        }
-
-        .actions {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            margin-top: 25px;
-        }
-
-        button {
-            border: 0;
-            background: #222;
-            color: #fff;
-            padding: 12px 22px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-family: inherit;
-        }
-
-        .back {
-            text-decoration: none;
-            color: #222;
-        }
-
-    </style>
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css"
+        rel="stylesheet"
+    >
 
 </head>
 
-<body>
+<body class="bg-light">
 
-<div class="container">
+<div class="container py-5">
 
-    <div class="box">
+    <div class="card shadow-sm mb-4">
 
-        <h1>
-            تکمیل سفارش
-        </h1>
+        <div class="card-body">
 
-        <p>
-            لطفاً اطلاعات سفارش خود را بررسی کنید
-            و در صورت صحت، سفارش را ثبت کنید.
-        </p>
+            <h1 class="h4 mb-3">
+                تکمیل سفارش
+            </h1>
+
+            <p class="text-muted mb-0">
+                محصولات و آدرس ارسال خود را بررسی کنید و سپس سفارش را ثبت کنید.
+            </p>
+
+        </div>
 
     </div>
 
-    <div class="box">
 
-        <h2>
-            محصولات سفارش
-        </h2>
+    <!-- محصولات -->
 
-        <?php foreach ($items as $item): ?>
+    <div class="card shadow-sm mb-4">
 
-            <?php
-            $productName = (string) (
-                $item['product_name']
-                ?? 'محصول'
-            );
+        <div class="card-body">
 
-            $quantity = (int) (
-                $item['quantity']
-                ?? 1
-            );
+            <h2 class="h5 mb-4">
+                محصولات سفارش
+            </h2>
 
-            $price = (float) (
-                $item['price']
-                ?? 0
-            );
 
-            $subtotal = $price * $quantity;
-            ?>
+            <?php foreach ($items as $item): ?>
 
-            <div class="item">
+                <?php
 
-                <div class="item-name">
-                    <?= htmlspecialchars(
-                        $productName,
-                        ENT_QUOTES,
-                        'UTF-8'
-                    ) ?>
+                $productName = (string) (
+                    $item['product_name']
+                    ?? 'محصول'
+                );
+
+                $quantity = (int) (
+                    $item['quantity']
+                    ?? 1
+                );
+
+                $price = (float) (
+                    $item['price']
+                    ?? 0
+                );
+
+                $subtotal = $price * $quantity;
+
+                ?>
+
+                <div class="border-bottom py-3">
+
+                    <div class="fw-bold">
+                        <?= htmlspecialchars(
+                            $productName,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) ?>
+                    </div>
+
+                    <div class="text-muted small mt-2">
+
+                        قیمت واحد:
+                        <?= number_format($price) ?>
+                        تومان
+
+                        |
+
+                        تعداد:
+                        <?= $quantity ?>
+
+                    </div>
+
+                    <div class="mt-2">
+
+                        مبلغ:
+                        <strong>
+                            <?= number_format($subtotal) ?>
+                            تومان
+                        </strong>
+
+                    </div>
+
                 </div>
 
-                <div class="meta">
-                    قیمت واحد:
-                    <?= number_format($price) ?>
-                    تومان
+            <?php endforeach; ?>
+
+
+            <div class="mt-4">
+
+                <div class="d-flex justify-content-between mb-2">
+
+                    <span>
+                        تعداد آیتم‌ها
+                    </span>
+
+                    <strong>
+                        <?= $itemCount ?>
+                    </strong>
+
                 </div>
 
-                <div class="meta">
-                    تعداد:
-                    <?= $quantity ?>
-                    عدد
+
+                <div class="d-flex justify-content-between mb-2">
+
+                    <span>
+                        تعداد کل کالاها
+                    </span>
+
+                    <strong>
+                        <?= $totalQuantity ?>
+                    </strong>
+
                 </div>
 
-                <div class="meta">
-                    مجموع:
-                    <?= number_format($subtotal) ?>
-                    تومان
+
+                <div class="d-flex justify-content-between border-top pt-3 mt-3">
+
+                    <span class="fw-bold">
+                        مبلغ نهایی
+                    </span>
+
+                    <strong class="fs-5">
+                        <?= number_format($total) ?>
+                        تومان
+                    </strong>
+
                 </div>
-
-            </div>
-
-        <?php endforeach; ?>
-
-        <div class="summary">
-
-            <div class="summary-row">
-
-                <span>
-                    تعداد آیتم‌ها:
-                </span>
-
-                <strong>
-                    <?= $itemCount ?>
-                </strong>
-
-            </div>
-
-            <div class="summary-row">
-
-                <span>
-                    تعداد کل کالاها:
-                </span>
-
-                <strong>
-                    <?= $totalQuantity ?>
-                </strong>
-
-            </div>
-
-            <div class="summary-row total">
-
-                <span>
-                    مبلغ نهایی:
-                </span>
-
-                <strong>
-                    <?= number_format($total) ?>
-                    تومان
-                </strong>
 
             </div>
 
         </div>
 
-        <div class="actions">
+    </div>
+
+
+    <!-- آدرس ارسال -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-body">
+
+            <h2 class="h5 mb-4">
+                آدرس ارسال
+            </h2>
+
+
+            <?php if ($addresses === []): ?>
+
+                <div class="alert alert-warning">
+
+                    <div class="fw-bold mb-2">
+                        هنوز آدرسی ثبت نکرده‌اید.
+                    </div>
+
+                    <div>
+                        ابتدا یک آدرس برای ارسال سفارش ثبت کنید.
+                    </div>
+
+                    <a
+                        href="<?= htmlspecialchars(
+                            app_config('base_url', '')
+                            . '/addresses',
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) ?>"
+                        class="btn btn-warning mt-3"
+                    >
+                        مدیریت آدرس‌ها
+                    </a>
+
+                </div>
+
+            <?php else: ?>
+
+                <?php foreach ($addresses as $index => $address): ?>
+
+                    <div class="border rounded p-3 mb-3">
+
+                        <div class="form-check">
+
+                            <input
+                                class="form-check-input"
+                                type="radio"
+                                name="address_id"
+                                id="address_<?= (int) $address['id'] ?>"
+                                value="<?= (int) $address['id'] ?>"
+                                form="checkout-form"
+                                <?= $index === 0 ? 'checked' : '' ?>
+                            >
+
+                            <label
+                                class="form-check-label w-100"
+                                for="address_<?= (int) $address['id'] ?>"
+                            >
+
+                                <div class="fw-bold mb-2">
+
+                                    <?= htmlspecialchars(
+                                        (string) (
+                                            $address['title']
+                                            ?? 'آدرس'
+                                        ),
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+
+                                </div>
+
+                                <div class="mb-1">
+
+                                    گیرنده:
+                                    <?= htmlspecialchars(
+                                        (string) $address['receiver_name'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+
+                                </div>
+
+                                <div class="mb-1">
+
+                                    تلفن:
+                                    <?= htmlspecialchars(
+                                        (string) $address['phone'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+
+                                </div>
+
+                                <div class="mb-1">
+
+                                    <?= htmlspecialchars(
+                                        (string) $address['province'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+
+                                    -
+
+                                    <?= htmlspecialchars(
+                                        (string) $address['city'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+
+                                </div>
+
+                                <div>
+
+                                    <?= htmlspecialchars(
+                                        (string) $address['address'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+
+                                </div>
+
+                                <?php if (!empty($address['postal_code'])): ?>
+
+                                    <div class="text-muted small mt-2">
+
+                                        کد پستی:
+                                        <?= htmlspecialchars(
+                                            (string) $address['postal_code'],
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>
+
+                                    </div>
+
+                                <?php endif; ?>
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+                <?php endforeach; ?>
+
+                <a
+                    href="<?= htmlspecialchars(
+                        app_config('base_url', '')
+                        . '/addresses',
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>"
+                    class="btn btn-outline-secondary"
+                >
+                    مدیریت آدرس‌ها
+                </a>
+
+            <?php endif; ?>
+
+        </div>
+
+    </div>
+
+
+    <!-- ثبت سفارش -->
+
+    <div class="card shadow-sm">
+
+        <div class="card-body">
 
             <form
+                id="checkout-form"
                 method="POST"
                 action="<?= htmlspecialchars(
                     app_config('base_url', '')
@@ -251,25 +366,44 @@ $total = (float) ($total ?? 0);
                 ) ?>"
             >
 
-                <?= $csrfField ?>
+                <?= $csrfField ?? '' ?>
 
-                <button type="submit">
-                    تأیید و ثبت سفارش
-                </button>
+
+                <?php if ($addresses !== []): ?>
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary btn-lg"
+                    >
+                        تأیید و ثبت سفارش
+                    </button>
+
+                <?php else: ?>
+
+                    <button
+                        type="button"
+                        class="btn btn-secondary btn-lg"
+                        disabled
+                    >
+                        ابتدا آدرس ثبت کنید
+                    </button>
+
+                <?php endif; ?>
+
+
+                <a
+                    href="<?= htmlspecialchars(
+                        app_config('base_url', '')
+                        . '/cart',
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>"
+                    class="btn btn-outline-dark btn-lg ms-2"
+                >
+                    بازگشت به سبد خرید
+                </a>
 
             </form>
-
-            <a
-                class="back"
-                href="<?= htmlspecialchars(
-                    app_config('base_url', '')
-                    . '/cart',
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) ?>"
-            >
-                بازگشت به سبد خرید
-            </a>
 
         </div>
 

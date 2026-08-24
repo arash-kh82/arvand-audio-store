@@ -7,15 +7,19 @@ namespace App\Controllers;
 use App\Core\Auth;
 use App\Core\Controller;
 use App\Core\Session;
+use App\Models\Address;
 use App\Models\Order;
 
 final class OrderController extends Controller
 {
     private Order $orders;
 
+    private Address $addresses;
+
     public function __construct()
     {
         $this->orders = new Order();
+        $this->addresses = new Address();
     }
 
     /**
@@ -31,18 +35,43 @@ final class OrderController extends Controller
             $this->notFound();
         }
 
+        $userId = (int) $user['id'];
+
+        /*
+         * دریافت سفارش فقط در صورتی که متعلق
+         * به کاربر فعلی باشد.
+         */
         $order = $this->orders->findById(
             $orderId,
-            (int) $user['id']
+            $userId
         );
 
         if ($order === null) {
             $this->notFound();
         }
 
+        /*
+         * دریافت آیتم‌های سفارش
+         */
         $items = $this->orders->getItems(
             $orderId
         );
+
+        /*
+         * دریافت آدرس ارسال سفارش
+         */
+        $address = null;
+
+        $addressId = (int) (
+            $order['address_id'] ?? 0
+        );
+
+        if ($addressId > 0) {
+            $address = $this->addresses->findById(
+                $addressId,
+                $userId
+            );
+        }
 
         $this->view('orders/show', [
             'title' =>
@@ -51,6 +80,8 @@ final class OrderController extends Controller
             'order' => $order,
 
             'items' => $items,
+
+            'address' => $address,
         ]);
     }
 

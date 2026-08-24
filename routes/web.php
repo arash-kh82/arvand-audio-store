@@ -82,3 +82,18 @@ $router->get(
     '/orders/{id}',
     [App\Controllers\OrderController::class, 'show']
 );
+
+$router->get(
+    '/addresses',
+    [App\Controllers\AddressController::class, 'index']
+);
+
+$router->post(
+    '/addresses',
+    [App\Controllers\AddressController::class, 'store']
+);
+
+$router->post(
+    '/addresses/delete',
+    [App\Controllers\AddressController::class, 'delete']
+);

@@ -8,6 +8,7 @@ use App\Core\Auth;
 use App\Core\Controller;
 use App\Core\Csrf;
 use App\Core\Session;
+use App\Models\Address;
 use App\Models\Cart;
 use App\Models\Order;
 use RuntimeException;
@@ -18,10 +19,13 @@ final class CheckoutController extends Controller
 
     private Order $orders;
 
+    private Address $addresses;
+
     public function __construct()
     {
         $this->cart = new Cart();
         $this->orders = new Order();
+        $this->addresses = new Address();
     }
 
     /**
@@ -44,9 +48,12 @@ final class CheckoutController extends Controller
             $this->redirect('/cart');
         }
 
+        $addresses = $this->addresses->getUserAddresses($userId);
+
         $this->view('checkout/index', [
             'title' => 'تکمیل سفارش',
             'items' => $items,
+            'addresses' => $addresses,
             'totalQuantity' =>
                 $this->cart->getTotalQuantity($userId),
             'itemCount' =>
@@ -73,14 +80,47 @@ final class CheckoutController extends Controller
             $this->redirect('/checkout');
         }
 
+        $userId = (int) $user['id'];
+
+        $addressId = (int) (
+            $_POST['address_id'] ?? 0
+        );
+
+        if ($addressId <= 0) {
+            Session::flash(
+                'error',
+                'لطفاً یک آدرس برای ارسال سفارش انتخاب کنید.'
+            );
+
+            $this->redirect('/checkout');
+        }
+
         try {
+            /*
+             * بررسی می‌کنیم آدرس واقعاً متعلق به همین کاربر باشد.
+             */
+            $address = $this->addresses->findById(
+                $addressId,
+                $userId
+            );
+
+            if ($address === null) {
+                throw new RuntimeException(
+                    'آدرس انتخاب‌شده معتبر نیست.'
+                );
+            }
+
+            /*
+             * ایجاد سفارش با آدرس انتخاب‌شده
+             */
             $orderId = $this->orders->createFromCart(
-                (int) $user['id']
+                $userId,
+                $addressId
             );
 
             $order = $this->orders->findById(
                 $orderId,
-                (int) $user['id']
+                $userId
             );
 
             if ($order === null) {
