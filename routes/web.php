@@ -5,8 +5,22 @@ declare(strict_types=1);
 use App\Controllers\ProductController;
 use App\Controllers\CartController;
 
+
+/*
+|--------------------------------------------------------------------------
+| Home
+|--------------------------------------------------------------------------
+*/
+
 $router->get('/', 'HomeController@index');
 $router->get('/home', 'HomeController@index');
+
+
+/*
+|--------------------------------------------------------------------------
+| Authentication
+|--------------------------------------------------------------------------
+*/
 
 $router->get('/login', 'AuthController@showLogin');
 $router->post('/login', 'AuthController@login');
@@ -16,6 +30,7 @@ $router->post('/register', 'AuthController@register');
 
 $router->get('/account', 'AuthController@account');
 $router->post('/logout', 'AuthController@logout');
+
 
 /*
 |--------------------------------------------------------------------------
@@ -43,6 +58,13 @@ $router->get(
     [ProductController::class, 'brand']
 );
 
+
+/*
+|--------------------------------------------------------------------------
+| Cart
+|--------------------------------------------------------------------------
+*/
+
 $router->get(
     '/cart',
     [CartController::class, 'index']
@@ -68,6 +90,13 @@ $router->post(
     [CartController::class, 'clear']
 );
 
+
+/*
+|--------------------------------------------------------------------------
+| Checkout
+|--------------------------------------------------------------------------
+*/
+
 $router->get(
     '/checkout',
     [App\Controllers\CheckoutController::class, 'index']
@@ -78,10 +107,45 @@ $router->post(
     [App\Controllers\CheckoutController::class, 'store']
 );
 
+
+/*
+|--------------------------------------------------------------------------
+| Orders
+|--------------------------------------------------------------------------
+*/
+
 $router->get(
     '/orders/{id}',
     [App\Controllers\OrderController::class, 'show']
 );
+
+/*
+|--------------------------------------------------------------------------
+| Payments
+|--------------------------------------------------------------------------
+*/
+
+$router->get(
+    '/payment/{orderId}',
+    [App\Controllers\PaymentController::class, 'index']
+);
+
+$router->post(
+    '/payment/{orderId}/success',
+    [App\Controllers\PaymentController::class, 'success']
+);
+
+$router->post(
+    '/payment/{orderId}/failed',
+    [App\Controllers\PaymentController::class, 'failed']
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Addresses
+|--------------------------------------------------------------------------
+*/
 
 $router->get(
     '/addresses',

@@ -97,7 +97,8 @@ final class CheckoutController extends Controller
 
         try {
             /*
-             * بررسی می‌کنیم آدرس واقعاً متعلق به همین کاربر باشد.
+             * بررسی می‌کنیم آدرس انتخاب‌شده
+             * متعلق به همین کاربر باشد.
              */
             $address = $this->addresses->findById(
                 $addressId,
@@ -129,13 +130,15 @@ final class CheckoutController extends Controller
                 );
             }
 
-            Session::flash(
-                'success',
-                'سفارش شما با موفقیت ثبت شد.'
-            );
-
+            /*
+             * بعد از ثبت موفق سفارش،
+             * کاربر وارد صفحه پرداخت می‌شود.
+             *
+             * PaymentController در صورت نیاز
+             * رکورد Payment را ایجاد می‌کند.
+             */
             $this->redirect(
-                '/orders/' . $orderId
+                '/payment/' . $orderId
             );
         } catch (RuntimeException $e) {
             Session::flash(

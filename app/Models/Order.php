@@ -348,4 +348,60 @@ final class Order extends Model
     
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
+
+    /**
+     * علامت‌گذاری سفارش به عنوان پرداخت‌شده
+     */
+    public function markAsPaid(int $orderId, int $userId): bool
+    {
+        if ($orderId <= 0 || $userId <= 0) {
+            return false;
+        }
+    
+        $stmt = $this->db->prepare(
+            'UPDATE orders
+             SET
+                payment_status = :payment_status,
+                status = :status,
+                updated_at = NOW()
+             WHERE id = :id
+               AND user_id = :user_id
+             LIMIT 1'
+        );
+    
+        return $stmt->execute([
+            ':payment_status' => 'success',
+            ':status' => 'processing',
+            ':id' => $orderId,
+            ':user_id' => $userId,
+        ]);
+    }
+    
+    /**
+     * علامت‌گذاری سفارش به عنوان پرداخت ناموفق
+     */
+    public function markPaymentFailed(
+        int $orderId,
+        int $userId
+    ): bool {
+        if ($orderId <= 0 || $userId <= 0) {
+            return false;
+        }
+    
+        $stmt = $this->db->prepare(
+            'UPDATE orders
+             SET
+                payment_status = :payment_status,
+                updated_at = NOW()
+             WHERE id = :id
+               AND user_id = :user_id
+             LIMIT 1'
+        );
+    
+        return $stmt->execute([
+            ':payment_status' => 'failed',
+            ':id' => $orderId,
+            ':user_id' => $userId,
+        ]);
+    }
 }
