@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Controllers\ProductController;
+use App\Controllers\CartController;
 
 $router->get('/', 'HomeController@index');
 $router->get('/home', 'HomeController@index');
@@ -40,4 +41,29 @@ $router->get(
 $router->get(
     '/brands/{slug}',
     [ProductController::class, 'brand']
+);
+
+$router->get(
+    '/cart',
+    [CartController::class, 'index']
+);
+
+$router->post(
+    '/cart/add',
+    [CartController::class, 'add']
+);
+
+$router->post(
+    '/cart/update',
+    [CartController::class, 'update']
+);
+
+$router->post(
+    '/cart/remove',
+    [CartController::class, 'remove']
+);
+
+$router->post(
+    '/cart/clear',
+    [CartController::class, 'clear']
 );

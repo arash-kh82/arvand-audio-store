@@ -8,6 +8,7 @@ use App\Core\Controller;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
+use App\Core\Csrf;
 
 final class ProductController extends Controller
 {
@@ -234,17 +235,16 @@ final class ProductController extends Controller
      */
     public function show(string $slug): void
     {
-        $product = $this->products->findBySlug(
-            $slug
-        );
-
+        $product = $this->products->findBySlug($slug);
+    
         if ($product === null) {
             $this->notFound();
         }
-
+    
         $this->view('products/show', [
             'title' => $product['name'],
             'product' => $product,
+            'csrfField' => Csrf::field(),
         ]);
     }
 

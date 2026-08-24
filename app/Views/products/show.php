@@ -2,33 +2,40 @@
 
 declare(strict_types=1);
 
-if (!isset($product) || !is_array($product)) {
-    http_response_code(404);
-    exit('محصول پیدا نشد.');
-}
+use App\Core\Auth;
+use App\Core\Session;
+use App\Core\Csrf;
+
+$product = is_array($product ?? null)
+    ? $product
+    : [];
+
+$success = Session::flash('success');
+$error = Session::flash('error');
 
 $name = (string) ($product['name'] ?? '');
 $description = (string) ($product['description'] ?? '');
-$image = trim((string) ($product['image'] ?? ''));
+$price = (float) ($product['price'] ?? 0);
 
-$discountPrice = $product['discount_price'] ?? null;
-
-$finalPrice = (
-    $discountPrice !== null
-    && $discountPrice !== ''
-    && (float) $discountPrice > 0
-)
-    ? (float) $discountPrice
-    : (float) ($product['price'] ?? 0);
+$discountPrice = $product['discount_price'] !== null
+    ? (float) $product['discount_price']
+    : null;
 
 $stock = (int) ($product['stock'] ?? 0);
+$brandName = (string) ($product['brand_name'] ?? '');
+$categoryName = (string) ($product['category_name'] ?? '');
+$sku = (string) ($product['sku'] ?? '');
+
+$baseUrl = rtrim(
+    (string) app_config('base_url', ''),
+    '/'
+);
 ?>
 
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 
 <head>
-
     <meta charset="UTF-8">
 
     <meta
@@ -38,249 +45,632 @@ $stock = (int) ($product['stock'] ?? 0);
 
     <title>
         <?= htmlspecialchars(
-            $name,
+            (string) ($title ?? $name),
             ENT_QUOTES,
             'UTF-8'
         ) ?>
-        | Arvand Audio Store
     </title>
-
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css"
-        rel="stylesheet"
-    >
 
     <style>
         body {
-            background: #f8f9fa;
+            font-family: Tahoma, Arial, sans-serif;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 30px;
+            color: #222;
         }
 
-        .product-detail-image {
-            width: 100%;
-            height: 450px;
-            object-fit: contain;
-            background: #fff;
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
         }
 
-        .placeholder {
-            width: 100%;
-            height: 450px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .product {
             background: #fff;
-            font-size: 6rem;
+            padding: 30px;
+            border-radius: 10px;
+        }
+
+        h1 {
+            margin-top: 0;
+        }
+
+        .meta {
+            color: #666;
+            margin: 8px 0;
+        }
+
+        .description {
+            margin: 25px 0;
+            line-height: 2;
         }
 
         .price {
-            font-size: 1.8rem;
-            font-weight: 700;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+
+        .old-price {
+            text-decoration: line-through;
+            color: #888;
+            font-size: 17px;
+            margin-left: 10px;
+        }
+
+        .stock {
+            margin-bottom: 20px;
+        }
+
+        .available {
+            color: #16803c;
+        }
+
+        .unavailable {
+            color: #b42318;
+        }
+
+        .cart-form {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        input[type="number"] {
+            width: 80px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        button {
+            border: 0;
+            background: #222;
+            color: #fff;
+            padding: 11px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background: #999;
+            cursor: not-allowed;
+        }
+
+        .message {
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .success {
+            background: #dff5e3;
+            color: #176b2c;
+        }
+
+        .error {
+            background: #fde2e2;
+            color: #9b1c1c;
+        }
+
+        .login-message {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f1f1f1;
+            border-radius: 6px;
+        }
+
+        a {
+            color: #222;
+        }
+
+        /* Modal */
+
+        .cart-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+
+        .cart-modal.show {
+            display: flex;
+        }
+
+        .cart-modal-box {
+            width: 100%;
+            max-width: 420px;
+            background: #fff;
+            border-radius: 14px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
+        }
+
+        .cart-modal-icon {
+            font-size: 42px;
+            margin-bottom: 10px;
+        }
+
+        .cart-modal-title {
+            font-size: 21px;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .cart-modal-message {
+            color: #555;
+            line-height: 1.9;
+            margin-bottom: 20px;
+        }
+
+        .cart-modal-button {
+            min-width: 120px;
+        }
+
+        .cart-modal.success .cart-modal-title {
+            color: #176b2c;
+        }
+
+        .cart-modal.error .cart-modal-title {
+            color: #b42318;
+        }
+
+        .cart-link {
+            display: inline-block;
+            margin-top: 15px;
+        }
+
+        .cart-count {
+            display: inline-block;
+            min-width: 20px;
+            padding: 2px 6px;
+            margin-right: 4px;
+            border-radius: 10px;
+            background: #222;
+            color: #fff;
+            font-size: 12px;
+            text-align: center;
         }
     </style>
-
 </head>
 
 <body>
 
-<nav class="navbar navbar-expand-lg bg-dark navbar-dark">
+<div class="container">
 
-    <div class="container">
+    <?php if ($success !== null): ?>
 
-        <a
-            class="navbar-brand fw-bold"
-            href="/arvand-audio-store/public/"
-        >
-            Arvand Audio Store
-        </a>
+        <div class="message success">
+            <?= htmlspecialchars(
+                (string) $success,
+                ENT_QUOTES,
+                'UTF-8'
+            ) ?>
+        </div>
 
-        <a
-            class="btn btn-outline-light"
-            href="/arvand-audio-store/public/products"
-        >
-            بازگشت به محصولات
-        </a>
+    <?php endif; ?>
 
-    </div>
+    <?php if ($error !== null): ?>
 
-</nav>
+        <div class="message error">
+            <?= htmlspecialchars(
+                (string) $error,
+                ENT_QUOTES,
+                'UTF-8'
+            ) ?>
+        </div>
 
-<main class="container py-5">
+    <?php endif; ?>
 
-    <div class="card border-0 shadow-sm">
+    <div class="product">
 
-        <div class="card-body p-4">
+        <h1>
+            <?= htmlspecialchars(
+                $name,
+                ENT_QUOTES,
+                'UTF-8'
+            ) ?>
+        </h1>
 
-            <div class="row g-5">
+        <?php if ($brandName !== ''): ?>
 
-                <div class="col-lg-6">
-
-                    <?php if ($image !== ''): ?>
-
-                        <img
-                            src="<?= htmlspecialchars(
-                                $image,
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ) ?>"
-                            class="product-detail-image rounded"
-                            alt="<?= htmlspecialchars(
-                                $name,
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ) ?>"
-                        >
-
-                    <?php else: ?>
-
-                        <div class="placeholder rounded">
-                            🎧
-                        </div>
-
-                    <?php endif; ?>
-
-                </div>
-
-                <div class="col-lg-6">
-
-                    <?php if (!empty($product['brand_name'])): ?>
-
-                        <div class="text-muted mb-2">
-                            برند:
-                            <strong>
-                                <?= htmlspecialchars(
-                                    $product['brand_name'],
-                                    ENT_QUOTES,
-                                    'UTF-8'
-                                ) ?>
-                            </strong>
-                        </div>
-
-                    <?php endif; ?>
-
-                    <h1 class="fw-bold mb-3">
-                        <?= htmlspecialchars(
-                            $name,
-                            ENT_QUOTES,
-                            'UTF-8'
-                        ) ?>
-                    </h1>
-
-                    <?php if (!empty($product['category_name'])): ?>
-
-                        <div class="mb-3">
-
-                            دسته‌بندی:
-
-                            <a
-                                href="/arvand-audio-store/public/categories/<?= urlencode($product['category_slug']) ?>"
-                            >
-                                <?= htmlspecialchars(
-                                    $product['category_name'],
-                                    ENT_QUOTES,
-                                    'UTF-8'
-                                ) ?>
-                            </a>
-
-                        </div>
-
-                    <?php endif; ?>
-
-                    <hr>
-
-                    <div class="mb-4">
-
-                        <span class="price">
-                            <?= number_format(
-                                $finalPrice,
-                                0,
-                                '.',
-                                ','
-                            ) ?>
-                            تومان
-                        </span>
-
-                    </div>
-
-                    <div class="mb-4">
-
-                        <?php if ($stock > 0): ?>
-
-                            <span class="badge text-bg-success">
-                                موجود در انبار
-                            </span>
-
-                            <span class="text-muted ms-2">
-                                تعداد موجود:
-                                <?= $stock ?>
-                            </span>
-
-                        <?php else: ?>
-
-                            <span class="badge text-bg-danger">
-                                ناموجود
-                            </span>
-
-                        <?php endif; ?>
-
-                    </div>
-
-                    <?php if ($description !== ''): ?>
-
-                        <h5 class="fw-bold">
-                            توضیحات محصول
-                        </h5>
-
-                        <p class="text-muted">
-                            <?= nl2br(
-                                htmlspecialchars(
-                                    $description,
-                                    ENT_QUOTES,
-                                    'UTF-8'
-                                )
-                            ) ?>
-                        </p>
-
-                    <?php endif; ?>
-
-                    <div class="mt-4">
-
-                        <?php if ($stock > 0): ?>
-
-                            <button
-                                type="button"
-                                class="btn btn-dark btn-lg"
-                                disabled
-                            >
-                                افزودن به سبد خرید
-                            </button>
-
-                            <div class="form-text mt-2">
-                                بخش سبد خرید در مرحله بعد فعال می‌شود.
-                            </div>
-
-                        <?php else: ?>
-
-                            <button
-                                type="button"
-                                class="btn btn-secondary btn-lg"
-                                disabled
-                            >
-                                محصول ناموجود است
-                            </button>
-
-                        <?php endif; ?>
-
-                    </div>
-
-                </div>
-
+            <div class="meta">
+                برند:
+                <?= htmlspecialchars(
+                    $brandName,
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>
             </div>
+
+        <?php endif; ?>
+
+        <?php if ($categoryName !== ''): ?>
+
+            <div class="meta">
+                دسته‌بندی:
+                <?= htmlspecialchars(
+                    $categoryName,
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>
+            </div>
+
+        <?php endif; ?>
+
+        <?php if ($sku !== ''): ?>
+
+            <div class="meta">
+                کد کالا:
+                <?= htmlspecialchars(
+                    $sku,
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>
+            </div>
+
+        <?php endif; ?>
+
+        <div class="description">
+            <?= nl2br(
+                htmlspecialchars(
+                    $description,
+                    ENT_QUOTES,
+                    'UTF-8'
+                )
+            ) ?>
+        </div>
+
+        <div class="price">
+
+            <?php if ($discountPrice !== null): ?>
+
+                <span class="old-price">
+                    <?= number_format($price) ?>
+                    تومان
+                </span>
+
+                <?= number_format($discountPrice) ?>
+                تومان
+
+            <?php else: ?>
+
+                <?= number_format($price) ?>
+                تومان
+
+            <?php endif; ?>
 
         </div>
 
+        <div class="stock">
+
+            <?php if ($stock > 0): ?>
+
+                <span class="available">
+                    موجود است —
+                    <?= $stock ?>
+                    عدد
+                </span>
+
+            <?php else: ?>
+
+                <span class="unavailable">
+                    ناموجود
+                </span>
+
+            <?php endif; ?>
+
+        </div>
+
+        <?php if (Auth::check()): ?>
+
+            <form
+                method="POST"
+                action="<?= htmlspecialchars(
+                    $baseUrl . '/cart/add',
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>"
+                class="cart-form"
+                id="addToCartForm"
+            >
+
+                <?= Csrf::field() ?>
+
+                <input
+                    type="hidden"
+                    name="product_id"
+                    value="<?= (int) $product['id'] ?>"
+                >
+
+                <input
+                    type="number"
+                    name="quantity"
+                    value="1"
+                    min="1"
+                    max="<?= max(1, $stock) ?>"
+                    <?= $stock <= 0 ? 'disabled' : '' ?>
+                >
+
+                <button
+                    type="submit"
+                    id="addToCartButton"
+                    <?= $stock <= 0 ? 'disabled' : '' ?>
+                >
+                    افزودن به سبد خرید
+                </button>
+
+            </form>
+
+        <?php else: ?>
+
+            <div class="login-message">
+                برای افزودن محصول به سبد خرید ابتدا
+                <a
+                    href="<?= htmlspecialchars(
+                        $baseUrl . '/login',
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>"
+                >
+                    وارد حساب کاربری
+                </a>
+                شوید.
+            </div>
+
+        <?php endif; ?>
+
+        <p>
+            <a
+                href="<?= htmlspecialchars(
+                    $baseUrl . '/products',
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>"
+            >
+                ← بازگشت به محصولات
+            </a>
+
+            &nbsp;&nbsp;
+
+            <?php if (Auth::check()): ?>
+
+                <a
+                    href="<?= htmlspecialchars(
+                        $baseUrl . '/cart',
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>"
+                    class="cart-link"
+                >
+                    مشاهده سبد خرید
+                    <span
+                        class="cart-count"
+                        id="cartCount"
+                    >
+                        0
+                    </span>
+                </a>
+
+            <?php endif; ?>
+
+        </p>
+
     </div>
 
-</main>
+</div>
+
+<!-- Cart Modal -->
+
+<div
+    class="cart-modal"
+    id="cartModal"
+    aria-hidden="true"
+>
+    <div class="cart-modal-box">
+
+        <div
+            class="cart-modal-icon"
+            id="cartModalIcon"
+        >
+            ✓
+        </div>
+
+        <div
+            class="cart-modal-title"
+            id="cartModalTitle"
+        >
+            موفق
+        </div>
+
+        <div
+            class="cart-modal-message"
+            id="cartModalMessage"
+        >
+        </div>
+
+        <button
+            type="button"
+            class="cart-modal-button"
+            id="cartModalClose"
+        >
+            باشه
+        </button>
+
+    </div>
+</div>
+
+<?php if (Auth::check()): ?>
+
+<script>
+(function () {
+
+    const form = document.getElementById('addToCartForm');
+    const button = document.getElementById('addToCartButton');
+
+    const modal = document.getElementById('cartModal');
+    const modalBox = modal.querySelector('.cart-modal-box');
+
+    const icon = document.getElementById('cartModalIcon');
+    const title = document.getElementById('cartModalTitle');
+    const message = document.getElementById('cartModalMessage');
+    const closeButton = document.getElementById('cartModalClose');
+
+    const cartCount = document.getElementById('cartCount');
+
+    if (!form) {
+        return;
+    }
+
+    function showModal(type, modalTitle, modalMessage) {
+
+        modal.classList.add('show');
+        modal.classList.remove('success', 'error');
+        modal.classList.add(type);
+
+        icon.textContent =
+            type === 'success' ? '✓' : '×';
+
+        title.textContent = modalTitle;
+        message.textContent = modalMessage;
+
+        modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideModal() {
+
+        modal.classList.remove(
+            'show',
+            'success',
+            'error'
+        );
+
+        modal.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+    }
+
+    closeButton.addEventListener(
+        'click',
+        hideModal
+    );
+
+    modal.addEventListener(
+        'click',
+        function (event) {
+
+            if (event.target === modal) {
+                hideModal();
+            }
+
+        }
+    );
+
+    form.addEventListener(
+        'submit',
+        async function (event) {
+
+            event.preventDefault();
+
+            if (button.disabled) {
+                return;
+            }
+
+            const originalText =
+                button.textContent;
+
+            button.disabled = true;
+            button.textContent = 'در حال افزودن...';
+
+            try {
+
+                const response = await fetch(
+                    form.action,
+                    {
+                        method: 'POST',
+                        body: new FormData(form),
+                        headers: {
+                            'X-Requested-With':
+                                'XMLHttpRequest',
+                            'Accept':
+                                'application/json'
+                        }
+                    }
+                );
+
+                let data = null;
+
+                try {
+                    data = await response.json();
+                } catch (jsonError) {
+                    data = null;
+                }
+
+                if (
+                    !data
+                    || typeof data.success === 'undefined'
+                ) {
+                    throw new Error(
+                        'پاسخ نامعتبر از سرور دریافت شد.'
+                    );
+                }
+
+                if (data.success) {
+
+                    showModal(
+                        'success',
+                        'افزودن به سبد خرید',
+                        data.message
+                            || 'محصول با موفقیت به سبد خرید اضافه شد.'
+                    );
+
+                    if (
+                        typeof data.cartQuantity !==
+                        'undefined'
+                    ) {
+                        cartCount.textContent =
+                            data.cartQuantity;
+                    }
+
+                } else {
+
+                    showModal(
+                        'error',
+                        'خطا',
+                        data.message
+                            || 'افزودن محصول به سبد خرید انجام نشد.'
+                    );
+                }
+
+            } catch (error) {
+
+                showModal(
+                    'error',
+                    'خطا',
+                    error.message
+                        || 'ارتباط با سرور برقرار نشد.'
+                );
+
+            } finally {
+
+                button.disabled = false;
+                button.textContent = originalText;
+
+            }
+
+        }
+    );
+
+})();
+</script>
+
+<?php endif; ?>
 
 </body>
 
