@@ -9,14 +9,18 @@ use App\Core\Controller;
 use App\Core\Csrf;
 use App\Core\Session;
 use App\Models\User;
+use App\Models\Order;
 
 final class AuthController extends Controller
 {
     private User $users;
 
+    private Order $orders;
+
     public function __construct()
     {
         $this->users = new User();
+        $this->orders = new Order();
     }
 
     public function showLogin(): void
@@ -245,6 +249,9 @@ final class AuthController extends Controller
         $this->view('auth/account', [
             'title' => 'حساب کاربری',
             'user' => $user,
+            'orders' => $this->orders->getUserOrders(
+                (int) $user['id']
+            ),
             'csrfField' => Csrf::field(),
         ]);
     }

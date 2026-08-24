@@ -318,4 +318,33 @@ final class Order extends Model
 
         return $number;
     }
+
+    public function getUserOrders(int $userId): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+    
+        $stmt = $this->db->prepare(
+            'SELECT
+                id,
+                order_number,
+                status,
+                payment_status,
+                subtotal,
+                discount,
+                shipping_cost,
+                total,
+                created_at
+             FROM orders
+             WHERE user_id = :user_id
+             ORDER BY id DESC'
+        );
+    
+        $stmt->execute([
+            ':user_id' => $userId,
+        ]);
+    
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
 }

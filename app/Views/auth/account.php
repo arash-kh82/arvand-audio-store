@@ -3,7 +3,10 @@
 use App\Core\Session;
 
 $e = static fn($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+
 $user = $user ?? [];
+$orders = is_array($orders ?? null) ? $orders : [];
+
 $success = Session::flash('success');
 $error = Session::flash('error');
 ?>
@@ -16,10 +19,15 @@ $error = Session::flash('error');
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
+
 <div class="container py-5">
     <div class="row justify-content-center">
         <div class="col-12 col-lg-8">
+
+            <!-- کارت اصلی -->
             <div class="bg-white border rounded-3 p-4 shadow-sm">
+
+                <!-- هدر -->
                 <div class="d-flex align-items-center justify-content-between gap-3 mb-4">
                     <h1 class="h4 mb-0"><?= $e($title ?? 'حساب کاربری') ?></h1>
                     <form method="post" action="logout" class="m-0">
@@ -28,6 +36,7 @@ $error = Session::flash('error');
                     </form>
                 </div>
 
+                <!-- پیام‌های فلش -->
                 <?php if ($success): ?>
                     <div class="alert alert-success"><?= $e($success) ?></div>
                 <?php endif; ?>
@@ -36,7 +45,8 @@ $error = Session::flash('error');
                     <div class="alert alert-danger"><?= $e($error) ?></div>
                 <?php endif; ?>
 
-                <div class="table-responsive">
+                <!-- اطلاعات کاربری -->
+                <div class="table-responsive mb-4">
                     <table class="table table-bordered align-middle mb-0">
                         <tbody>
                             <tr>
@@ -62,9 +72,54 @@ $error = Session::flash('error');
                         </tbody>
                     </table>
                 </div>
+
+                <!-- سفارش‌های من -->
+                <div class="mt-4">
+                    <h2 class="h5 mb-3">سفارش‌های من</h2>
+
+                    <?php if ($orders === []): ?>
+                        <div class="alert alert-info">
+                            هنوز سفارشی ثبت نکرده‌اید.
+                        </div>
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-bordered align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>شماره سفارش</th>
+                                        <th>مبلغ</th>
+                                        <th>وضعیت</th>
+                                        <th>تاریخ</th>
+                                        <th>عملیات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($orders as $order): ?>
+                                        <tr>
+                                            <td><?= $e($order['order_number'] ?? '') ?></td>
+                                            <td><?= number_format((float) ($order['total'] ?? 0)) ?> تومان</td>
+                                            <td><?= $e($order['status'] ?? '') ?></td>
+                                            <td><?= $e($order['created_at'] ?? '') ?></td>
+                                            <td>
+                                                <a class="btn btn-sm btn-outline-primary" href="/orders/<?= (int) $order['id'] ?>">
+                                                    مشاهده
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <!-- پایان سفارش‌های من -->
+
             </div>
+            <!-- پایان کارت اصلی -->
+
         </div>
     </div>
 </div>
+
 </body>
 </html>
