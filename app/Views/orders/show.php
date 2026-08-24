@@ -191,6 +191,30 @@ $paymentStatusText =
             margin-left: 20px;
         }
 
+        .pay-button {
+            display: inline-block;
+            background: #198754;
+            color: #fff !important;
+            padding: 10px 18px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .pay-button:hover {
+            background: #157347;
+        }
+
+        .paid-message {
+            display: inline-block;
+            background: #dff5e3;
+            color: #176b2c;
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-weight: bold;
+            margin-left: 20px;
+        }
+
     </style>
 
 </head>
@@ -508,6 +532,35 @@ $paymentStatusText =
         </div>
 
         <div class="actions">
+
+            <?php if (
+                $paymentStatus === 'pending'
+                || $paymentStatus === 'failed'
+            ): ?>
+
+                <a
+                    class="pay-button"
+                    href="<?= htmlspecialchars(
+                        app_config('base_url', '')
+                        . '/payment/'
+                        . (int) ($order['id'] ?? 0),
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>"
+                >
+                    <?= $paymentStatus === 'failed'
+                        ? 'تلاش مجدد برای پرداخت'
+                        : 'پرداخت سفارش'
+                    ?>
+                </a>
+
+            <?php elseif ($paymentStatus === 'success'): ?>
+
+                <span class="paid-message">
+                    پرداخت این سفارش با موفقیت انجام شده است.
+                </span>
+
+            <?php endif; ?>
 
             <a
                 href="<?= htmlspecialchars(
