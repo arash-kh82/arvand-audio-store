@@ -7,13 +7,11 @@ namespace App\Controllers;
 use App\Core\Auth;
 use App\Core\Controller;
 use App\Core\Csrf;
-use App\Core\Session;
-use App\Models\User;
-use App\Models\Order;
-use App\Models\VerificationCode;
 use App\Core\Mailer;
-
-
+use App\Core\Session;
+use App\Models\Order;
+use App\Models\User;
+use App\Models\VerificationCode;
 
 final class AuthController extends Controller
 {
@@ -32,7 +30,7 @@ final class AuthController extends Controller
         $this->orders = new Order();
 
         $this->verificationCodes = new VerificationCode();
-        
+
         $this->mailer = new Mailer();
     }
 
@@ -62,14 +60,22 @@ final class AuthController extends Controller
 
         if (!$this->verifyCsrf()) {
             $this->renderLogin(
-                ['csrf' => 'اعتبارسنجی امنیتی نامعتبر است.'],
+                [
+                    'csrf' => 'اعتبارسنجی امنیتی نامعتبر است.',
+                ],
                 $this->oldLoginData()
             );
+
             return;
         }
 
-        $email = trim((string) ($_POST['email'] ?? ''));
-        $password = (string) ($_POST['password'] ?? '');
+        $email = trim(
+            (string) ($_POST['email'] ?? '')
+        );
+
+        $password = (string) (
+            $_POST['password'] ?? ''
+        );
 
         $old = [
             'email' => $email,
@@ -77,23 +83,58 @@ final class AuthController extends Controller
 
         $errors = [];
 
+        /*
+        |--------------------------------------------------------------------------
+        | Validate email
+        |--------------------------------------------------------------------------
+        */
+
         if (
             $email === ''
-            || !filter_var($email, FILTER_VALIDATE_EMAIL)
+            || !filter_var(
+                $email,
+                FILTER_VALIDATE_EMAIL
+            )
         ) {
-            $errors['email'] = 'ایمیل معتبر وارد کنید.';
+            $errors['email'] =
+                'ایمیل معتبر وارد کنید.';
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Validate password
+        |--------------------------------------------------------------------------
+        */
+
         if ($password === '') {
-            $errors['password'] = 'رمز عبور را وارد کنید.';
+            $errors['password'] =
+                'رمز عبور را وارد کنید.';
         }
 
         if ($errors !== []) {
-            $this->renderLogin($errors, $old);
+            $this->renderLogin(
+                $errors,
+                $old
+            );
+
             return;
         }
 
-        $user = $this->users->findByEmail($email);
+        /*
+        |--------------------------------------------------------------------------
+        | Find user
+        |--------------------------------------------------------------------------
+        */
+
+        $user = $this->users->findByEmail(
+            $email
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Verify credentials
+        |--------------------------------------------------------------------------
+        */
 
         if (
             $user === null
@@ -103,65 +144,84 @@ final class AuthController extends Controller
             )
         ) {
             $this->renderLogin(
-                ['credentials' => 'ایمیل یا رمز عبور نادرست است.'],
+                [
+                    'credentials' =>
+                        'ایمیل یا رمز عبور نادرست است.',
+                ],
                 $old
             );
+
             return;
         }
 
-        if (($user['status'] ?? 'active') !== 'active') {
+        /*
+        |--------------------------------------------------------------------------
+        | Check account status
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            ($user['status'] ?? 'active')
+            !== 'active'
+        ) {
             $this->renderLogin(
-                ['status' => 'حساب کاربری شما فعال نیست.'],
+                [
+                    'status' =>
+                        'حساب کاربری شما فعال نیست.',
+                ],
                 $old
             );
+
             return;
         }
-        
-        // ====== بررسی تأیید ایمیل ======
-        if ($user['email_verified_at'] === null) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Check email verification
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            ($user['email_verified_at'] ?? null)
+            === null
+        ) {
             Session::put(
                 'pending_verification_user',
-                $user['id']
+                (int) $user['id']
             );
-            
-            $this->redirect('/verify-email');
+
+            Session::flash(
+                'error',
+                'ابتدا ایمیل خود را تأیید کنید.'
+            );
+
+            $this->redirect(
+                '/verify-email'
+            );
+
             return;
         }
 
-        $code = $this->generateVerificationCode();
-        
-        $this->verificationCodes->invalidatePrevious(
-            $id,
-            'email_verification'
+        /*
+        |--------------------------------------------------------------------------
+        | Login
+        |--------------------------------------------------------------------------
+        */
+
+        Session::regenerate(true);
+
+        Auth::login(
+            $this->users->publicUser($user)
         );
-        
-        $this->verificationCodes->create(
-            $id,
-            'email_verification',
-            $code,
-            10
-        );
-        
-        
-        Mailer::sendVerificationCode(
-            $email,
-            $code
-        );
-        
-        
-        Session::put(
-            'pending_verification_user',
-            $id
-        );
-        
-        
+
         Session::flash(
             'success',
-            'کد تایید به ایمیل شما ارسال شد.'
+            'با موفقیت وارد حساب کاربری شدید.'
         );
-        
-        
-        $this->redirect('/verify-email');
+
+        $this->redirect(
+            '/account'
+        );
     }
 
     public function register(): void
@@ -172,9 +232,13 @@ final class AuthController extends Controller
 
         if (!$this->verifyCsrf()) {
             $this->renderRegister(
-                ['csrf' => 'اعتبارسنجی امنیتی نامعتبر است.'],
+                [
+                    'csrf' =>
+                        'اعتبارسنجی امنیتی نامعتبر است.',
+                ],
                 $this->oldRegisterData()
             );
+
             return;
         }
 
@@ -201,6 +265,12 @@ final class AuthController extends Controller
 
         $errors = [];
 
+        /*
+        |--------------------------------------------------------------------------
+        | Validate name
+        |--------------------------------------------------------------------------
+        */
+
         if (
             $name === ''
             || mb_strlen($name) < 2
@@ -208,6 +278,12 @@ final class AuthController extends Controller
             $errors['name'] =
                 'نام باید حداقل ۲ کاراکتر باشد.';
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Validate email
+        |--------------------------------------------------------------------------
+        */
 
         if (
             $email === ''
@@ -219,28 +295,52 @@ final class AuthController extends Controller
             $errors['email'] =
                 'ایمیل معتبر وارد کنید.';
         } elseif (
-            $this->users->findByEmail($email) !== null
+            $this->users->findByEmail($email)
+            !== null
         ) {
             $errors['email'] =
-                'این ایمیل قبلا ثبت شده است.';
+                'این ایمیل قبلاً ثبت شده است.';
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Validate password
+        |--------------------------------------------------------------------------
+        */
 
         if (mb_strlen($password) < 8) {
             $errors['password'] =
                 'رمز عبور باید حداقل ۸ کاراکتر باشد.';
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Confirm password
+        |--------------------------------------------------------------------------
+        */
+
         if (
-            $password !== $passwordConfirmation
+            $password
+            !== $passwordConfirmation
         ) {
             $errors['password_confirmation'] =
                 'تکرار رمز عبور با رمز عبور یکسان نیست.';
         }
 
         if ($errors !== []) {
-            $this->renderRegister($errors, $old);
+            $this->renderRegister(
+                $errors,
+                $old
+            );
+
             return;
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Create user
+        |--------------------------------------------------------------------------
+        */
 
         $id = $this->users->create([
             'name' => $name,
@@ -253,7 +353,15 @@ final class AuthController extends Controller
             'status' => 'active',
         ]);
 
-        $user = $this->users->findById($id);
+        /*
+        |--------------------------------------------------------------------------
+        | Retrieve created user
+        |--------------------------------------------------------------------------
+        */
+
+        $user = $this->users->findById(
+            $id
+        );
 
         if ($user === null) {
             throw new \RuntimeException(
@@ -261,12 +369,19 @@ final class AuthController extends Controller
             );
         }
 
-        $code = (string) random_int(100000, 999999);
+        /*
+        |--------------------------------------------------------------------------
+        | Generate verification code
+        |--------------------------------------------------------------------------
+        */
 
-        $this->verificationCodes->invalidatePrevious(
-            $id,
-            'email_verification'
-        );
+        $code = $this->generateVerificationCode();
+
+        $this->verificationCodes
+            ->invalidatePrevious(
+                $id,
+                'email_verification'
+            );
 
         $this->verificationCodes->create(
             $id,
@@ -274,19 +389,37 @@ final class AuthController extends Controller
             $code
         );
 
+        /*
+        |--------------------------------------------------------------------------
+        | Send verification email
+        |--------------------------------------------------------------------------
+        */
+
         $this->mailer->sendVerificationCode(
             $email,
             $name,
             $code
         );
 
+        /*
+        |--------------------------------------------------------------------------
+        | Store pending verification user
+        |--------------------------------------------------------------------------
+        */
+
         Session::put(
             'pending_verification_user',
             $id
         );
 
-        $this->redirect('/verify-email');
+        Session::flash(
+            'success',
+            'کد تأیید به ایمیل شما ارسال شد.'
+        );
 
+        $this->redirect(
+            '/verify-email'
+        );
     }
 
     public function account(): void
@@ -298,28 +431,41 @@ final class AuthController extends Controller
             );
 
             $this->redirect('/login');
+
+            return;
         }
 
         $user = Auth::user();
 
         if ($user === null) {
             $this->redirect('/login');
+
+            return;
         }
 
-        $this->view('auth/account', [
-            'title' => 'حساب کاربری',
-            'user' => $user,
-            'orders' => $this->orders->getUserOrders(
-                (int) $user['id']
-            ),
-            'csrfField' => Csrf::field(),
-        ]);
+        $this->view(
+            'auth/account',
+            [
+                'title' => 'حساب کاربری',
+                'user' => $user,
+                'orders' => $this->orders
+                    ->getUserOrders(
+                        (int) $user['id']
+                    ),
+                'csrfField' => Csrf::field(),
+            ]
+        );
     }
 
     public function logout(): void
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        if (
+            ($_SERVER['REQUEST_METHOD'] ?? 'GET')
+            !== 'POST'
+        ) {
             $this->redirect('/account');
+
+            return;
         }
 
         if (!$this->verifyCsrf()) {
@@ -329,6 +475,8 @@ final class AuthController extends Controller
             );
 
             $this->redirect('/account');
+
+            return;
         }
 
         Auth::logout();
@@ -349,24 +497,30 @@ final class AuthController extends Controller
         array $errors = [],
         array $old = []
     ): void {
-        $this->view('auth/login', [
-            'title' => 'ورود به حساب کاربری',
-            'errors' => $errors,
-            'old' => $old,
-            'csrfField' => Csrf::field(),
-        ]);
+        $this->view(
+            'auth/login',
+            [
+                'title' => 'ورود به حساب کاربری',
+                'errors' => $errors,
+                'old' => $old,
+                'csrfField' => Csrf::field(),
+            ]
+        );
     }
 
     private function renderRegister(
         array $errors = [],
         array $old = []
     ): void {
-        $this->view('auth/register', [
-            'title' => 'ثبت‌نام',
-            'errors' => $errors,
-            'old' => $old,
-            'csrfField' => Csrf::field(),
-        ]);
+        $this->view(
+            'auth/register',
+            [
+                'title' => 'ثبت‌نام',
+                'errors' => $errors,
+                'old' => $old,
+                'csrfField' => Csrf::field(),
+            ]
+        );
     }
 
     private function verifyCsrf(): bool
@@ -399,6 +553,9 @@ final class AuthController extends Controller
 
     private function generateVerificationCode(): string
     {
-        return (string) random_int(100000, 999999);
+        return (string) random_int(
+            100000,
+            999999
+        );
     }
 }
