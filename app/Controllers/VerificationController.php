@@ -161,4 +161,95 @@ final class VerificationController extends Controller
 
         $this->redirect('/account');
     }
+
+    public function resend(): void
+    {
+        $userId = Session::get(
+            'pending_verification_user'
+        );
+
+        if (!$userId) {
+            $this->redirect('/register');
+            return;
+        }
+
+        if (!Csrf::validate(
+            $_POST['_token'] ?? null
+        )) {
+            Session::flash(
+                'error',
+                'درخواست نامعتبر است.'
+            );
+
+            $this->redirect('/verify-email');
+            return;
+        }
+
+        $user = $this->users->findById(
+            (int) $userId
+        );
+
+        if ($user === null) {
+            Session::forget('pending_verification_user');
+
+            Session::flash(
+                'error',
+                'کاربر موردنظر پیدا نشد.'
+            );
+
+            $this->redirect('/register');
+            return;
+        }
+
+        if ($user['email_verified_at'] !== null) {
+            Session::forget('pending_verification_user');
+
+            Session::flash(
+                'success',
+                'ایمیل شما قبلاً تأیید شده است.'
+            );
+
+            $this->redirect('/account');
+            return;
+        }
+
+        $code = (string) random_int(
+            100000,
+            999999
+        );
+
+        $this->codes->invalidatePrevious(
+            (int) $userId,
+            'email_verification'
+        );
+
+        $this->codes->create(
+            (int) $userId,
+            'email_verification',
+            $code
+        );
+
+        $sent = \App\Core\Mailer::sendVerificationCode(
+            (string) $user['email'],
+            (string) $user['name'],
+            $code
+        );
+
+        if (!$sent) {
+            Session::flash(
+                'error',
+                'ارسال کد تأیید با مشکل مواجه شد. دوباره تلاش کنید.'
+            );
+
+            $this->redirect('/verify-email');
+            return;
+        }
+
+        Session::flash(
+            'success',
+            'کد تأیید جدید ارسال شد.'
+        );
+
+        $this->redirect('/verify-email');
+    }
 }

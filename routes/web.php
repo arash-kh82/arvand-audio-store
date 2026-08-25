@@ -41,7 +41,10 @@ $router->post(
     [App\Controllers\VerificationController::class, 'verify']
 );
 
-
+$router->post(
+    '/verify-email/resend',
+    [App\Controllers\VerificationController::class, 'resend']
+);
 
 /*
 |--------------------------------------------------------------------------
