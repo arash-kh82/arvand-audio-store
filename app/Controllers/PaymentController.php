@@ -46,18 +46,52 @@ final class PaymentController extends Controller
             $this->notFound();
         }
 
-        if ($order['payment_status'] === 'success') {
+        /*
+         * اگر سفارش قبلاً پرداخت شده باشد،
+         * دیگر اجازه پرداخت مجدد نداریم.
+         */
+        if (
+            ($order['payment_status'] ?? 'pending')
+            === 'success'
+        ) {
             Session::flash(
                 'success',
                 'این سفارش قبلاً پرداخت شده است.'
             );
 
             $this->redirect('/orders/' . $id);
+            return;
         }
 
+        /*
+         * آخرین پرداخت سفارش را پیدا می‌کنیم.
+         */
         $payment = $this->payments->findByOrderId($id);
 
+        /*
+         * اگر پرداختی وجود نداشته باشد،
+         * یک پرداخت pending ایجاد می‌کنیم.
+         */
         if ($payment === null) {
+            $paymentId = $this->payments->create(
+                $id,
+                (float) $order['total']
+            );
+
+            $payment = $this->payments->findById(
+                $paymentId
+            );
+        }
+
+        /*
+         * اگر آخرین پرداخت ناموفق بوده،
+         * برای تلاش مجدد یک پرداخت کاملاً جدید ایجاد می‌کنیم.
+         */
+        if (
+            $payment !== null
+            && ($payment['status'] ?? '')
+            === 'failed'
+        ) {
             $paymentId = $this->payments->create(
                 $id,
                 (float) $order['total']
@@ -74,12 +108,15 @@ final class PaymentController extends Controller
             );
         }
 
-        $this->view('payments/index', [
-            'title' => 'پرداخت سفارش',
-            'order' => $order,
-            'payment' => $payment,
-            'csrfField' => Csrf::field(),
-        ]);
+        $this->view(
+            'payments/index',
+            [
+                'title' => 'پرداخت سفارش',
+                'order' => $order,
+                'payment' => $payment,
+                'csrfField' => Csrf::field(),
+            ]
+        );
     }
 
     /**
@@ -95,7 +132,10 @@ final class PaymentController extends Controller
                 'اعتبارسنجی امنیتی نامعتبر است.'
             );
 
-            $this->redirect('/orders/' . (int) $orderId);
+            $this->redirect(
+                '/payment/' . (int) $orderId
+            );
+            return;
         }
 
         $id = (int) $orderId;
@@ -113,18 +153,50 @@ final class PaymentController extends Controller
             $this->notFound();
         }
 
-        if ($order['payment_status'] === 'success') {
+        /*
+         * جلوگیری از پرداخت دوباره سفارش موفق
+         */
+        if (
+            ($order['payment_status'] ?? 'pending')
+            === 'success'
+        ) {
             Session::flash(
                 'success',
                 'این سفارش قبلاً پرداخت شده است.'
             );
 
             $this->redirect('/orders/' . $id);
+            return;
         }
 
+        /*
+         * آخرین پرداخت سفارش را دریافت می‌کنیم.
+         */
         $payment = $this->payments->findByOrderId($id);
 
+        /*
+         * اگر پرداختی وجود نداشت، ایجاد می‌کنیم.
+         */
         if ($payment === null) {
+            $paymentId = $this->payments->create(
+                $id,
+                (float) $order['total']
+            );
+
+            $payment = $this->payments->findById(
+                $paymentId
+            );
+        }
+
+        /*
+         * اگر آخرین پرداخت failed باشد،
+         * این تلاش باید با یک payment جدید انجام شود.
+         */
+        if (
+            $payment !== null
+            && ($payment['status'] ?? '')
+            === 'failed'
+        ) {
             $paymentId = $this->payments->create(
                 $id,
                 (float) $order['total']
@@ -141,6 +213,25 @@ final class PaymentController extends Controller
             );
         }
 
+        /*
+         * فقط پرداخت pending قابل موفق شدن است.
+         */
+        if (
+            ($payment['status'] ?? '')
+            !== 'pending'
+        ) {
+            Session::flash(
+                'error',
+                'این پرداخت دیگر قابل انجام نیست.'
+            );
+
+            $this->redirect('/orders/' . $id);
+            return;
+        }
+
+        /*
+         * تولید کد تراکنش شبیه‌سازی‌شده
+         */
         $transactionCode =
             'SIM-'
             . date('YmdHis')
@@ -149,6 +240,9 @@ final class PaymentController extends Controller
                 bin2hex(random_bytes(3))
             );
 
+        /*
+         * ثبت پرداخت موفق
+         */
         if (
             !$this->payments->markSuccess(
                 (int) $payment['id'],
@@ -160,6 +254,9 @@ final class PaymentController extends Controller
             );
         }
 
+        /*
+         * تغییر وضعیت سفارش
+         */
         if (
             !$this->orders->markAsPaid(
                 $id,
@@ -176,7 +273,9 @@ final class PaymentController extends Controller
             'پرداخت با موفقیت انجام شد.'
         );
 
-        $this->redirect('/orders/' . $id);
+        $this->redirect(
+            '/orders/' . $id
+        );
     }
 
     /**
@@ -192,7 +291,10 @@ final class PaymentController extends Controller
                 'اعتبارسنجی امنیتی نامعتبر است.'
             );
 
-            $this->redirect('/orders/' . (int) $orderId);
+            $this->redirect(
+                '/payment/' . (int) $orderId
+            );
+            return;
         }
 
         $id = (int) $orderId;
@@ -210,8 +312,28 @@ final class PaymentController extends Controller
             $this->notFound();
         }
 
+        /*
+         * اگر سفارش قبلاً پرداخت شده،
+         * اجازه ثبت failed نداریم.
+         */
+        if (
+            ($order['payment_status'] ?? 'pending')
+            === 'success'
+        ) {
+            Session::flash(
+                'success',
+                'این سفارش قبلاً پرداخت شده است.'
+            );
+
+            $this->redirect('/orders/' . $id);
+            return;
+        }
+
         $payment = $this->payments->findByOrderId($id);
 
+        /*
+         * اگر payment وجود نداشت، ایجادش می‌کنیم.
+         */
         if ($payment === null) {
             $paymentId = $this->payments->create(
                 $id,
@@ -229,10 +351,21 @@ final class PaymentController extends Controller
             );
         }
 
-        $this->payments->markFailed(
-            (int) $payment['id']
-        );
+        /*
+         * فقط پرداخت pending را failed می‌کنیم.
+         */
+        if (
+            ($payment['status'] ?? '')
+            === 'pending'
+        ) {
+            $this->payments->markFailed(
+                (int) $payment['id']
+            );
+        }
 
+        /*
+         * سفارش را ناموفق می‌کنیم.
+         */
         $this->orders->markPaymentFailed(
             $id,
             (int) $user['id']
@@ -243,7 +376,9 @@ final class PaymentController extends Controller
             'پرداخت سفارش ناموفق بود.'
         );
 
-        $this->redirect('/orders/' . $id);
+        $this->redirect(
+            '/orders/' . $id
+        );
     }
 
     /**

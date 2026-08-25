@@ -207,4 +207,40 @@ final class Payment
             ':id' => $id,
         ]);
     }
+
+    public function retry(
+        int $id,
+        float $amount
+    ): bool {
+        if ($id <= 0) {
+            throw new RuntimeException(
+                'شناسه پرداخت نامعتبر است.'
+            );
+        }
+
+        if ($amount <= 0) {
+            throw new RuntimeException(
+                'مبلغ پرداخت نامعتبر است.'
+            );
+        }
+
+        $stmt = $this->db->prepare(
+            'UPDATE payments
+         SET
+            amount = :amount,
+            status = :status,
+            transaction_code = NULL,
+            paid_at = NULL
+         WHERE id = :id
+           AND status = :failed
+         LIMIT 1'
+        );
+
+        return $stmt->execute([
+            ':amount' => $amount,
+            ':status' => 'pending',
+            ':failed' => 'failed',
+            ':id' => $id,
+        ]);
+    }
 }

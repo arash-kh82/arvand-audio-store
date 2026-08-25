@@ -205,6 +205,31 @@ $router->post(
     [App\Controllers\AdminProductController::class, 'delete']
 );
 
+/*
+|--------------------------------------------------------------------------
+| Admin Orders
+|--------------------------------------------------------------------------
+*/
+
+$router->get(
+    '/admin/orders',
+    [App\Controllers\AdminOrderController::class, 'index']
+);
+
+$router->get(
+    '/admin/orders/{id}',
+    [App\Controllers\AdminOrderController::class, 'show']
+);
+
+$router->post(
+    '/admin/orders/{id}/status',
+    [App\Controllers\AdminOrderController::class, 'updateStatus']
+);
+
+$router->post(
+    '/admin/orders/{id}/payment-status',
+    [App\Controllers\AdminOrderController::class, 'updatePaymentStatus']
+);
 
 /*
 |--------------------------------------------------------------------------

@@ -13,7 +13,7 @@ final class Order extends Model
     /**
      * ثبت سفارش از روی سبد خرید کاربر
      */
-    public function createFromCart(int $userId,int $addressId): int
+    public function createFromCart(int $userId, int $addressId): int
     {
         if ($userId <= 0) {
             throw new RuntimeException(
@@ -67,8 +67,8 @@ final class Order extends Model
                 if ($item['status'] !== 'active') {
                     throw new RuntimeException(
                         'محصول «'
-                        . $item['name']
-                        . '» دیگر فعال نیست.'
+                            . $item['name']
+                            . '» دیگر فعال نیست.'
                     );
                 }
 
@@ -81,8 +81,8 @@ final class Order extends Model
                 if ($stock < $quantity) {
                     throw new RuntimeException(
                         'موجودی محصول «'
-                        . $item['name']
-                        . '» کافی نیست.'
+                            . $item['name']
+                            . '» کافی نیست.'
                     );
                 }
 
@@ -214,8 +214,8 @@ final class Order extends Model
                 if ($updateStock->rowCount() !== 1) {
                     throw new RuntimeException(
                         'کاهش موجودی محصول «'
-                        . $item['name']
-                        . '» انجام نشد.'
+                            . $item['name']
+                            . '» انجام نشد.'
                     );
                 }
             }
@@ -325,7 +325,7 @@ final class Order extends Model
         if ($userId <= 0) {
             return [];
         }
-    
+
         $stmt = $this->db->prepare(
             'SELECT
                 id,
@@ -341,11 +341,11 @@ final class Order extends Model
              WHERE user_id = :user_id
              ORDER BY id DESC'
         );
-    
+
         $stmt->execute([
             ':user_id' => $userId,
         ]);
-    
+
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
@@ -357,7 +357,7 @@ final class Order extends Model
         if ($orderId <= 0 || $userId <= 0) {
             return false;
         }
-    
+
         $stmt = $this->db->prepare(
             'UPDATE orders
              SET
@@ -368,7 +368,7 @@ final class Order extends Model
                AND user_id = :user_id
              LIMIT 1'
         );
-    
+
         return $stmt->execute([
             ':payment_status' => 'success',
             ':status' => 'processing',
@@ -376,7 +376,7 @@ final class Order extends Model
             ':user_id' => $userId,
         ]);
     }
-    
+
     /**
      * علامت‌گذاری سفارش به عنوان پرداخت ناموفق
      */
@@ -387,7 +387,7 @@ final class Order extends Model
         if ($orderId <= 0 || $userId <= 0) {
             return false;
         }
-    
+
         $stmt = $this->db->prepare(
             'UPDATE orders
              SET
@@ -397,11 +397,211 @@ final class Order extends Model
                AND user_id = :user_id
              LIMIT 1'
         );
-    
+
         return $stmt->execute([
             ':payment_status' => 'failed',
             ':id' => $orderId,
             ':user_id' => $userId,
+        ]);
+    }
+
+    /**
+     * دریافت همه سفارش‌ها برای پنل مدیریت
+     */
+    public function getAdminOrders(): array
+    {
+        $stmt = $this->db->query(
+            'SELECT
+            o.id,
+            o.order_number,
+            o.status,
+            o.payment_status,
+            o.subtotal,
+            o.discount,
+            o.shipping_cost,
+            o.total,
+            o.created_at,
+            o.updated_at,
+
+            u.id AS user_id,
+            u.name AS user_name,
+            u.email AS user_email,
+            u.phone AS user_phone,
+
+            a.receiver_name,
+            a.phone AS address_phone,
+            a.province,
+            a.city,
+            a.address,
+            a.postal_code
+
+         FROM orders o
+
+         INNER JOIN users u
+            ON o.user_id = u.id
+
+         LEFT JOIN addresses a
+            ON o.address_id = a.id
+
+         ORDER BY o.id DESC'
+        );
+
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * دریافت یک سفارش برای پنل مدیریت
+     */
+    public function findAdminById(int $id): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
+
+        $stmt = $this->db->prepare(
+            'SELECT
+            o.*,
+
+            u.name AS user_name,
+            u.email AS user_email,
+            u.phone AS user_phone,
+
+            a.title AS address_title,
+            a.receiver_name,
+            a.phone AS address_phone,
+            a.province,
+            a.city,
+            a.address,
+            a.postal_code
+
+         FROM orders o
+
+         INNER JOIN users u
+            ON o.user_id = u.id
+
+         LEFT JOIN addresses a
+            ON o.address_id = a.id
+
+         WHERE o.id = :id
+
+         LIMIT 1'
+        );
+
+        $stmt->execute([
+            ':id' => $id,
+        ]);
+
+        $order = $stmt->fetch();
+
+        return $order !== false
+            ? $order
+            : null;
+    }
+
+    /**
+     * دریافت آیتم‌های یک سفارش برای پنل مدیریت
+     */
+    public function getAdminItems(int $orderId): array
+    {
+        if ($orderId <= 0) {
+            return [];
+        }
+
+        $stmt = $this->db->prepare(
+            'SELECT
+            oi.*,
+            p.slug AS product_slug,
+            p.image AS product_image
+
+         FROM order_items oi
+
+         LEFT JOIN products p
+            ON oi.product_id = p.id
+
+         WHERE oi.order_id = :order_id
+
+         ORDER BY oi.id ASC'
+        );
+
+        $stmt->execute([
+            ':order_id' => $orderId,
+        ]);
+
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * تغییر وضعیت سفارش توسط مدیر
+     */
+    public function updateStatus(
+        int $orderId,
+        string $status
+    ): bool {
+        if ($orderId <= 0) {
+            return false;
+        }
+
+        $allowedStatuses = [
+            'pending',
+            'paid',
+            'processing',
+            'shipped',
+            'delivered',
+            'cancelled',
+        ];
+
+        if (!in_array($status, $allowedStatuses, true)) {
+            return false;
+        }
+
+        $stmt = $this->db->prepare(
+            'UPDATE orders
+         SET
+            status = :status,
+            updated_at = NOW()
+         WHERE id = :id
+         LIMIT 1'
+        );
+
+        return $stmt->execute([
+            ':status' => $status,
+            ':id' => $orderId,
+        ]);
+    }
+
+    /**
+     * تغییر وضعیت پرداخت توسط مدیر
+     */
+    public function updatePaymentStatus(
+        int $orderId,
+        string $paymentStatus
+    ): bool {
+        if ($orderId <= 0) {
+            return false;
+        }
+
+        $allowedStatuses = [
+            'pending',
+            'success',
+            'failed',
+        ];
+
+        if (!in_array($paymentStatus, $allowedStatuses, true)) {
+            return false;
+        }
+
+        $stmt = $this->db->prepare(
+            'UPDATE orders
+         SET
+            payment_status = :payment_status,
+            updated_at = NOW()
+         WHERE id = :id
+         LIMIT 1'
+        );
+
+        return $stmt->execute([
+            ':payment_status' => $paymentStatus,
+            ':id' => $orderId,
         ]);
     }
 }

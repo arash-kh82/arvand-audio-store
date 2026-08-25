@@ -1,4 +1,3 @@
-
 <?php
 
 use App\Core\Session;
@@ -9,6 +8,11 @@ $e = static fn($value): string =>
 $addresses = is_array($addresses ?? null)
     ? $addresses
     : [];
+
+$baseUrl = rtrim(
+    (string) app_config('base_url', ''),
+    '/'
+);
 
 $success = Session::flash('success');
 $error = Session::flash('error');
@@ -98,7 +102,7 @@ $error = Session::flash('error');
 
                         <form
                             method="POST"
-                            action="/addresses/delete"
+                            action="<?= $e($baseUrl . '/addresses/delete') ?>"
                         >
 
                             <?= $csrfField ?>
@@ -140,7 +144,7 @@ $error = Session::flash('error');
 
             <form
                 method="POST"
-                action="/addresses"
+                action="<?= $e($baseUrl . '/addresses') ?>"
             >
 
                 <?= $csrfField ?>

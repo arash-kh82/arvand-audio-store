@@ -26,7 +26,10 @@ $paymentStatus = (string) (
     $payment['status'] ?? 'pending'
 );
 
-$baseUrl = (string) app_config('base_url', '');
+$baseUrl = (string) app_config(
+    'base_url',
+    ''
+);
 
 $orderId = (int) (
     $order['id'] ?? 0
@@ -113,13 +116,17 @@ $orderId = (int) (
                             وضعیت پرداخت
                         </div>
 
-                        <?php if ($paymentStatus === 'pending'): ?>
+                        <?php if (
+                            $paymentStatus === 'pending'
+                        ): ?>
 
                             <span class="badge text-bg-warning">
                                 در انتظار پرداخت
                             </span>
 
-                        <?php elseif ($paymentStatus === 'success'): ?>
+                        <?php elseif (
+                            $paymentStatus === 'success'
+                        ): ?>
 
                             <span class="badge text-bg-success">
                                 پرداخت شده
@@ -135,14 +142,23 @@ $orderId = (int) (
 
                     </div>
 
-
-                    <?php if ($paymentStatus === 'pending'): ?>
+                    <?php if (
+                        $paymentStatus === 'pending'
+                    ): ?>
 
                         <div class="alert alert-info">
-                            این صفحه یک درگاه پرداخت شبیه‌سازی‌شده
-                            برای پروژه فروشگاهی است.
-                        </div>
 
+                            <strong>
+                                درگاه پرداخت آزمایشی
+                            </strong>
+
+                            <br>
+
+                            این صفحه برای شبیه‌سازی
+                            فرآیند پرداخت در پروژه فروشگاهی
+                            استفاده می‌شود.
+
+                        </div>
 
                         <!-- پرداخت موفق -->
 
@@ -170,7 +186,6 @@ $orderId = (int) (
 
                         </form>
 
-
                         <!-- پرداخت ناموفق -->
 
                         <form
@@ -196,14 +211,45 @@ $orderId = (int) (
 
                         </form>
 
-                    <?php else: ?>
+                    <?php elseif (
+                        $paymentStatus === 'success'
+                    ): ?>
 
-                        <div class="alert alert-secondary">
-                            این پرداخت دیگر قابل انجام نیست.
+                        <div class="alert alert-success">
+
+                            پرداخت این سفارش با موفقیت انجام شده
+                            و دیگر نیازی به پرداخت مجدد نیست.
+
                         </div>
 
-                    <?php endif; ?>
+                    <?php else: ?>
 
+                        <div class="alert alert-warning">
+
+                            پرداخت قبلی ناموفق بوده است.
+
+                            <br>
+
+                            برای تلاش مجدد، روی
+                            <strong>تلاش مجدد پرداخت</strong>
+                            کلیک کنید.
+
+                        </div>
+
+                        <a
+                            href="<?= htmlspecialchars(
+                                $baseUrl
+                                . '/payment/'
+                                . $orderId,
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>"
+                            class="btn btn-primary btn-lg w-100"
+                        >
+                            تلاش مجدد پرداخت
+                        </a>
+
+                    <?php endif; ?>
 
                     <div class="mt-4 d-flex gap-2">
 
