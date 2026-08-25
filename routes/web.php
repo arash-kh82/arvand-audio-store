@@ -46,6 +46,36 @@ $router->post(
     [App\Controllers\VerificationController::class, 'resend']
 );
 
+$router->get(
+    '/forgot-password',
+    [App\Controllers\PasswordResetController::class, 'showForgotPassword']
+);
+
+$router->post(
+    '/forgot-password',
+    [App\Controllers\PasswordResetController::class, 'sendCode']
+);
+
+$router->get(
+    '/verify-reset-code',
+    [App\Controllers\PasswordResetController::class, 'showVerifyCode']
+);
+
+$router->post(
+    '/verify-reset-code',
+    [App\Controllers\PasswordResetController::class, 'verifyCode']
+);
+
+$router->get(
+    '/reset-password',
+    [App\Controllers\PasswordResetController::class, 'showResetPassword']
+);
+
+$router->post(
+    '/reset-password',
+    [App\Controllers\PasswordResetController::class, 'resetPassword']
+);
+
 /*
 |--------------------------------------------------------------------------
 | Products

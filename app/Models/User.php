@@ -92,7 +92,7 @@ class User extends Model
         ]);
     }
 
-    public function updatePhone(int $userId,?string $phone): bool
+    public function updatePhone(int $userId, ?string $phone): bool
     {
         $stmt = $this->db->prepare(
             'UPDATE users
@@ -103,6 +103,26 @@ class User extends Model
 
         return $stmt->execute([
             ':phone' => $phone,
+            ':id' => $userId,
+        ]);
+    }
+
+    public function updatePassword(
+        int $userId,
+        string $password
+    ): bool {
+        $stmt = $this->db->prepare(
+            'UPDATE users
+         SET password = :password,
+             updated_at = NOW()
+         WHERE id = :id'
+        );
+
+        return $stmt->execute([
+            ':password' => password_hash(
+                $password,
+                PASSWORD_DEFAULT
+            ),
             ':id' => $userId,
         ]);
     }
