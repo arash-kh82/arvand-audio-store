@@ -26,14 +26,14 @@ final class AuthController extends Controller
     public function __construct()
     {
         $this->users = new User();
-
         $this->orders = new Order();
-
         $this->verificationCodes = new VerificationCode();
-
         $this->mailer = new Mailer();
     }
 
+    /**
+     * نمایش صفحه ورود
+     */
     public function showLogin(): void
     {
         if (Auth::check()) {
@@ -43,6 +43,9 @@ final class AuthController extends Controller
         $this->renderLogin();
     }
 
+    /**
+     * نمایش صفحه ثبت‌نام
+     */
     public function showRegister(): void
     {
         if (Auth::check()) {
@@ -52,6 +55,9 @@ final class AuthController extends Controller
         $this->renderRegister();
     }
 
+    /**
+     * ورود کاربر
+     */
     public function login(): void
     {
         if (Auth::check()) {
@@ -85,7 +91,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Validate email
+        | اعتبارسنجی ایمیل
         |--------------------------------------------------------------------------
         */
 
@@ -102,7 +108,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Validate password
+        | اعتبارسنجی رمز عبور
         |--------------------------------------------------------------------------
         */
 
@@ -122,7 +128,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Find user
+        | دریافت کاربر
         |--------------------------------------------------------------------------
         */
 
@@ -132,7 +138,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Verify credentials
+        | بررسی اطلاعات ورود
         |--------------------------------------------------------------------------
         */
 
@@ -156,7 +162,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Check account status
+        | بررسی وضعیت حساب
         |--------------------------------------------------------------------------
         */
 
@@ -177,7 +183,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Check email verification
+        | بررسی تأیید ایمیل
         |--------------------------------------------------------------------------
         */
 
@@ -204,7 +210,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Login
+        | ورود
         |--------------------------------------------------------------------------
         */
 
@@ -224,6 +230,9 @@ final class AuthController extends Controller
         );
     }
 
+    /**
+     * ثبت‌نام کاربر
+     */
     public function register(): void
     {
         if (Auth::check()) {
@@ -267,7 +276,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Validate name
+        | اعتبارسنجی نام
         |--------------------------------------------------------------------------
         */
 
@@ -281,7 +290,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Validate email
+        | اعتبارسنجی ایمیل
         |--------------------------------------------------------------------------
         */
 
@@ -304,7 +313,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Validate password
+        | اعتبارسنجی رمز عبور
         |--------------------------------------------------------------------------
         */
 
@@ -315,7 +324,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Confirm password
+        | تأیید رمز عبور
         |--------------------------------------------------------------------------
         */
 
@@ -338,7 +347,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Create user
+        | ایجاد کاربر
         |--------------------------------------------------------------------------
         */
 
@@ -355,7 +364,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Retrieve created user
+        | دریافت کاربر ایجادشده
         |--------------------------------------------------------------------------
         */
 
@@ -371,7 +380,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Generate verification code
+        | ایجاد کد تأیید ایمیل
         |--------------------------------------------------------------------------
         */
 
@@ -391,7 +400,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Send verification email
+        | ارسال ایمیل تأیید
         |--------------------------------------------------------------------------
         */
 
@@ -403,7 +412,7 @@ final class AuthController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Store pending verification user
+        | ذخیره کاربر در انتظار تأیید
         |--------------------------------------------------------------------------
         */
 
@@ -422,6 +431,9 @@ final class AuthController extends Controller
         );
     }
 
+    /**
+     * نمایش حساب کاربری
+     */
     public function account(): void
     {
         if (!Auth::check()) {
@@ -447,16 +459,22 @@ final class AuthController extends Controller
             'auth/account',
             [
                 'title' => 'حساب کاربری',
+
                 'user' => $user,
+
                 'orders' => $this->orders
                     ->getUserOrders(
                         (int) $user['id']
                     ),
+
                 'csrfField' => Csrf::field(),
             ]
         );
     }
 
+    /**
+     * خروج کاربر
+     */
     public function logout(): void
     {
         if (
@@ -493,6 +511,9 @@ final class AuthController extends Controller
         $this->redirect('/login');
     }
 
+    /**
+     * نمایش فرم ورود
+     */
     private function renderLogin(
         array $errors = [],
         array $old = []
@@ -508,6 +529,9 @@ final class AuthController extends Controller
         );
     }
 
+    /**
+     * نمایش فرم ثبت‌نام
+     */
     private function renderRegister(
         array $errors = [],
         array $old = []
@@ -523,6 +547,9 @@ final class AuthController extends Controller
         );
     }
 
+    /**
+     * بررسی CSRF
+     */
     private function verifyCsrf(): bool
     {
         return Csrf::validate(
@@ -530,6 +557,9 @@ final class AuthController extends Controller
         );
     }
 
+    /**
+     * داده‌های قبلی فرم ورود
+     */
     private function oldLoginData(): array
     {
         return [
@@ -539,6 +569,9 @@ final class AuthController extends Controller
         ];
     }
 
+    /**
+     * داده‌های قبلی فرم ثبت‌نام
+     */
     private function oldRegisterData(): array
     {
         return [
@@ -551,6 +584,9 @@ final class AuthController extends Controller
         ];
     }
 
+    /**
+     * تولید کد تأیید
+     */
     private function generateVerificationCode(): string
     {
         return (string) random_int(

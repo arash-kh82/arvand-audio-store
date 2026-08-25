@@ -89,7 +89,6 @@ $baseUrl = rtrim(
 
                 </div>
 
-
                 <!-- Flash messages -->
 
                 <?php if ($success): ?>
@@ -100,7 +99,6 @@ $baseUrl = rtrim(
 
                 <?php endif; ?>
 
-
                 <?php if ($error): ?>
 
                     <div class="alert alert-danger">
@@ -108,7 +106,6 @@ $baseUrl = rtrim(
                     </div>
 
                 <?php endif; ?>
-
 
                 <!-- User information -->
 
@@ -190,7 +187,6 @@ $baseUrl = rtrim(
 
                 </div>
 
-
                 <!-- Orders -->
 
                 <div class="mt-4">
@@ -198,7 +194,6 @@ $baseUrl = rtrim(
                     <h2 class="h5 mb-3">
                         سفارش‌های من
                     </h2>
-
 
                     <?php if ($orders === []): ?>
 
@@ -247,6 +242,7 @@ $baseUrl = rtrim(
                                 <?php foreach ($orders as $order): ?>
 
                                     <?php
+
                                     $orderId = (int) (
                                         $order['id'] ?? 0
                                     );
@@ -268,6 +264,7 @@ $baseUrl = rtrim(
                                     );
 
                                     $statusLabels = [
+
                                         'pending' =>
                                             'در انتظار پرداخت',
 
@@ -285,11 +282,13 @@ $baseUrl = rtrim(
 
                                         'cancelled' =>
                                             'لغو شده',
+
                                     ];
 
                                     $statusText =
                                         $statusLabels[$status]
                                         ?? $status;
+
                                     ?>
 
                                     <tr>
