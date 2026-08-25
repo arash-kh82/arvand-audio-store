@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Controllers\ProductController;
 use App\Controllers\CartController;
+use App\Controllers\AdminUserController;
 
 
 /*
@@ -230,6 +231,38 @@ $router->post(
     '/admin/orders/{id}/payment-status',
     [App\Controllers\AdminOrderController::class, 'updatePaymentStatus']
 );
+
+/*
+|--------------------------------------------------------------------------
+| Admin Users
+|--------------------------------------------------------------------------
+*/
+
+$router->get(
+    '/admin/users',
+    [App\Controllers\AdminUserController::class, 'index']
+);
+
+$router->get(
+    '/admin/users/{id}/edit',
+    [App\Controllers\AdminUserController::class, 'edit']
+);
+
+$router->post(
+    '/admin/users/{id}/update',
+    [App\Controllers\AdminUserController::class, 'update']
+);
+
+$router->post(
+    '/admin/users/{id}/role',
+    [App\Controllers\AdminUserController::class, 'updateRole']
+);
+
+$router->post(
+    '/admin/users/{id}/status',
+    [App\Controllers\AdminUserController::class, 'updateStatus']
+);
+
 
 /*
 |--------------------------------------------------------------------------
