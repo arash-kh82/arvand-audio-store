@@ -381,41 +381,41 @@ final class Product extends Model
     }
 
     /**
- * دریافت محصولات با فیلترهای ترکیبی
- *
- * فیلترهای قابل استفاده:
- * - search
- * - category_id
- * - brand_id
- * - min_price
- * - max_price
- * - in_stock
- * - sort
- */
-public function filter(array $filters = [], int $limit = 12): array
-{
-    $limit = max(1, min($limit, 100));
+     * دریافت محصولات با فیلترهای ترکیبی
+     *
+     * فیلترهای قابل استفاده:
+     * - search
+     * - category_id
+     * - brand_id
+     * - min_price
+     * - max_price
+     * - in_stock
+     * - sort
+     */
+    public function filter(array $filters = [], int $limit = 12): array
+    {
+        $limit = max(1, min($limit, 100));
 
-    $where = [
-        "p.status = 'active'",
-        "c.status = 1",
-        "b.status = 1",
-    ];
+        $where = [
+            "p.status = 'active'",
+            "c.status = 1",
+            "b.status = 1",
+        ];
 
-    $params = [];
+        $params = [];
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Search
     |--------------------------------------------------------------------------
     */
 
-    $search = trim(
-        (string) ($filters['search'] ?? '')
-    );
+        $search = trim(
+            (string) ($filters['search'] ?? '')
+        );
 
-    if ($search !== '') {
-        $where[] = "
+        if ($search !== '') {
+            $where[] = "
             (
                 p.name LIKE :search_name
                 OR p.sku LIKE :search_sku
@@ -425,108 +425,108 @@ public function filter(array $filters = [], int $limit = 12): array
             )
         ";
 
-        $searchValue = '%' . $search . '%';
+            $searchValue = '%' . $search . '%';
 
-        $params[':search_name'] = $searchValue;
-        $params[':search_sku'] = $searchValue;
-        $params[':search_description'] = $searchValue;
-        $params[':search_brand'] = $searchValue;
-        $params[':search_category'] = $searchValue;
-    }
+            $params[':search_name'] = $searchValue;
+            $params[':search_sku'] = $searchValue;
+            $params[':search_description'] = $searchValue;
+            $params[':search_brand'] = $searchValue;
+            $params[':search_category'] = $searchValue;
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Category
     |--------------------------------------------------------------------------
     */
 
-    $categoryId = (int) ($filters['category_id'] ?? 0);
+        $categoryId = (int) ($filters['category_id'] ?? 0);
 
-    if ($categoryId > 0) {
-        $where[] = "p.category_id = :category_id";
+        if ($categoryId > 0) {
+            $where[] = "p.category_id = :category_id";
 
-        $params[':category_id'] = $categoryId;
-    }
+            $params[':category_id'] = $categoryId;
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Brand
     |--------------------------------------------------------------------------
     */
 
-    $brandId = (int) ($filters['brand_id'] ?? 0);
+        $brandId = (int) ($filters['brand_id'] ?? 0);
 
-    if ($brandId > 0) {
-        $where[] = "p.brand_id = :brand_id";
+        if ($brandId > 0) {
+            $where[] = "p.brand_id = :brand_id";
 
-        $params[':brand_id'] = $brandId;
-    }
+            $params[':brand_id'] = $brandId;
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Minimum Price
     |--------------------------------------------------------------------------
     */
 
-    $minPrice = $filters['min_price'] ?? null;
+        $minPrice = $filters['min_price'] ?? null;
 
-    if (
-        $minPrice !== null
-        && $minPrice !== ''
-        && is_numeric($minPrice)
-        && (float) $minPrice >= 0
-    ) {
-        $where[] = "
+        if (
+            $minPrice !== null
+            && $minPrice !== ''
+            && is_numeric($minPrice)
+            && (float) $minPrice >= 0
+        ) {
+            $where[] = "
             COALESCE(
                 NULLIF(p.discount_price, 0),
                 p.price
             ) >= :min_price
         ";
 
-        $params[':min_price'] = (float) $minPrice;
-    }
+            $params[':min_price'] = (float) $minPrice;
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Maximum Price
     |--------------------------------------------------------------------------
     */
 
-    $maxPrice = $filters['max_price'] ?? null;
+        $maxPrice = $filters['max_price'] ?? null;
 
-    if (
-        $maxPrice !== null
-        && $maxPrice !== ''
-        && is_numeric($maxPrice)
-        && (float) $maxPrice >= 0
-    ) {
-        $where[] = "
+        if (
+            $maxPrice !== null
+            && $maxPrice !== ''
+            && is_numeric($maxPrice)
+            && (float) $maxPrice >= 0
+        ) {
+            $where[] = "
             COALESCE(
                 NULLIF(p.discount_price, 0),
                 p.price
             ) <= :max_price
         ";
 
-        $params[':max_price'] = (float) $maxPrice;
-    }
+            $params[':max_price'] = (float) $maxPrice;
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | فقط محصولات موجود
     |--------------------------------------------------------------------------
     */
 
-    if (
-        isset($filters['in_stock'])
-        && (
-            $filters['in_stock'] === true
-            || (int) $filters['in_stock'] === 1
-        )
-    ) {
-        $where[] = "p.stock > 0";
-    }
+        if (
+            isset($filters['in_stock'])
+            && (
+                $filters['in_stock'] === true
+                || (int) $filters['in_stock'] === 1
+            )
+        ) {
+            $where[] = "p.stock > 0";
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Sort
     |--------------------------------------------------------------------------
@@ -536,10 +536,10 @@ public function filter(array $filters = [], int $limit = 12): array
     |
     */
 
-    $sort = (string) ($filters['sort'] ?? 'newest');
+        $sort = (string) ($filters['sort'] ?? 'newest');
 
-    $orderBy = match ($sort) {
-        'price_asc' => "
+        $orderBy = match ($sort) {
+            'price_asc' => "
             COALESCE(
                 NULLIF(p.discount_price, 0),
                 p.price
@@ -547,7 +547,7 @@ public function filter(array $filters = [], int $limit = 12): array
             p.id DESC
         ",
 
-        'price_desc' => "
+            'price_desc' => "
             COALESCE(
                 NULLIF(p.discount_price, 0),
                 p.price
@@ -555,28 +555,28 @@ public function filter(array $filters = [], int $limit = 12): array
             p.id DESC
         ",
 
-        'name_asc' => "
+            'name_asc' => "
             p.name ASC,
             p.id DESC
         ",
 
-        'name_desc' => "
+            'name_desc' => "
             p.name DESC,
             p.id DESC
         ",
 
-        default => "
+            default => "
             p.id DESC
         ",
-    };
+        };
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Query
     |--------------------------------------------------------------------------
     */
 
-    $sql = "
+        $sql = "
         SELECT
             p.*,
             b.name AS brand_name,
@@ -602,32 +602,147 @@ public function filter(array $filters = [], int $limit = 12): array
         LIMIT :limit
     ";
 
-    $stmt = $this->db->prepare($sql);
+        $stmt = $this->db->prepare($sql);
 
-    foreach ($params as $key => $value) {
-        if (is_int($value)) {
-            $stmt->bindValue(
-                $key,
-                $value,
-                PDO::PARAM_INT
-            );
-        } else {
-            $stmt->bindValue(
-                $key,
-                $value
-            );
+        foreach ($params as $key => $value) {
+            if (is_int($value)) {
+                $stmt->bindValue(
+                    $key,
+                    $value,
+                    PDO::PARAM_INT
+                );
+            } else {
+                $stmt->bindValue(
+                    $key,
+                    $value
+                );
+            }
         }
+
+        $stmt->bindValue(
+            ':limit',
+            $limit,
+            PDO::PARAM_INT
+        );
+
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+    /** * دریافت همه محصولات برای پنل مدیریت */ public function getAdminProducts(): array
+    {
+        $stmt = $this->db->query(" SELECT p.*, b.name AS brand_name, c.name AS category_name FROM products p LEFT JOIN brands b ON p.brand_id = b.id INNER JOIN categories c ON p.category_id = c.id ORDER BY p.id DESC ");
+        return $stmt->fetchAll();
     }
 
-    $stmt->bindValue(
-        ':limit',
-        $limit,
-        PDO::PARAM_INT
-    );
+    /** * ایجاد محصول جدید */ public function create(array $data): int
+    {
+        $stmt = $this->db->prepare(" INSERT INTO products ( category_id, brand_id, name, slug, sku, description, price, discount_price, stock, image, status, featured ) VALUES ( :category_id, :brand_id, :name, :slug, :sku, :description, :price, :discount_price, :stock, :image, :status, :featured ) ");
+        $stmt->execute([':category_id' => (int) $data['category_id'], ':brand_id' => $data['brand_id'] !== null ? (int) $data['brand_id'] : null, ':name' => trim((string) $data['name']), ':slug' => trim((string) $data['slug']), ':sku' => trim((string) $data['sku']), ':description' => trim((string) ($data['description'] ?? '')), ':price' => (float) $data['price'], ':discount_price' => $data['discount_price'] !== null ? (float) $data['discount_price'] : null, ':stock' => (int) $data['stock'], ':image' => ($data['image'] ?? '') !== '' ? trim((string) $data['image']) : null, ':status' => $data['status'] ?? 'active', ':featured' => !empty($data['featured']) ? 1 : 0,]);
+        return (int) $this->db->lastInsertId();
+    }
 
-    $stmt->execute();
+    /**
+     * دریافت محصول برای پنل مدیریت
+     */
+    public function findAdminById(int $id): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
 
-    return $stmt->fetchAll();
-}
+        $stmt = $this->db->prepare("
+        SELECT
+            p.*,
+            b.name AS brand_name,
+            c.name AS category_name
+        FROM products p
+        LEFT JOIN brands b
+            ON p.brand_id = b.id
+        INNER JOIN categories c
+            ON p.category_id = c.id
+        WHERE p.id = :id
+        LIMIT 1
+    ");
 
+        $stmt->execute([
+            ':id' => $id,
+        ]);
+
+        $product = $stmt->fetch();
+
+        return $product !== false ? $product : null;
+    }
+
+    /**
+     * ویرایش محصول
+     */
+    public function update(int $id, array $data): bool
+    {
+        if ($id <= 0) {
+            return false;
+        }
+
+        $stmt = $this->db->prepare("
+        UPDATE products
+        SET
+            category_id = :category_id,
+            brand_id = :brand_id,
+            name = :name,
+            slug = :slug,
+            sku = :sku,
+            description = :description,
+            price = :price,
+            discount_price = :discount_price,
+            stock = :stock,
+            image = :image,
+            status = :status,
+            featured = :featured
+        WHERE id = :id
+    ");
+
+        return $stmt->execute([
+            ':id' => $id,
+            ':category_id' => (int) $data['category_id'],
+            ':brand_id' => $data['brand_id'] !== null
+                ? (int) $data['brand_id']
+                : null,
+            ':name' => trim((string) $data['name']),
+            ':slug' => trim((string) $data['slug']),
+            ':sku' => trim((string) $data['sku']),
+            ':description' => trim(
+                (string) ($data['description'] ?? '')
+            ),
+            ':price' => (float) $data['price'],
+            ':discount_price' => $data['discount_price'] !== null
+                ? (float) $data['discount_price']
+                : null,
+            ':stock' => (int) $data['stock'],
+            ':image' => ($data['image'] ?? '') !== ''
+                ? trim((string) $data['image'])
+                : null,
+            ':status' => $data['status'] ?? 'active',
+            ':featured' => !empty($data['featured']) ? 1 : 0,
+        ]);
+    }
+
+    /**
+     * حذف محصول
+     */
+    public function delete(int $id): bool
+    {
+        if ($id <= 0) {
+            return false;
+        }
+
+        $stmt = $this->db->prepare("
+        DELETE FROM products
+        WHERE id = :id
+        LIMIT 1
+    ");
+
+        return $stmt->execute([
+            ':id' => $id,
+        ]);
+    }
 }

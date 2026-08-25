@@ -163,6 +163,49 @@ $router->get(
     [App\Controllers\OrderController::class, 'show']
 );
 
+
+/*
+|--------------------------------------------------------------------------
+| Admin
+|--------------------------------------------------------------------------
+*/
+
+$router->get(
+    '/admin',
+    [App\Controllers\AdminDashboardController::class, 'index']
+);
+
+$router->get(
+    '/admin/products',
+    [App\Controllers\AdminProductController::class, 'index']
+);
+
+$router->get(
+    '/admin/products/create',
+    [App\Controllers\AdminProductController::class, 'create']
+);
+
+$router->post(
+    '/admin/products',
+    [App\Controllers\AdminProductController::class, 'store']
+);
+
+$router->get(
+    '/admin/products/{id}/edit',
+    [App\Controllers\AdminProductController::class, 'edit']
+);
+
+$router->post(
+    '/admin/products/{id}/update',
+    [App\Controllers\AdminProductController::class, 'update']
+);
+
+$router->post(
+    '/admin/products/{id}/delete',
+    [App\Controllers\AdminProductController::class, 'delete']
+);
+
+
 /*
 |--------------------------------------------------------------------------
 | Payments
