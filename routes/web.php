@@ -31,6 +31,17 @@ $router->post('/register', 'AuthController@register');
 $router->get('/account', 'AuthController@account');
 $router->post('/logout', 'AuthController@logout');
 
+$router->get(
+    '/verify-email',
+    [App\Controllers\VerificationController::class, 'show']
+);
+
+$router->post(
+    '/verify-email',
+    [App\Controllers\VerificationController::class, 'verify']
+);
+
+
 
 /*
 |--------------------------------------------------------------------------

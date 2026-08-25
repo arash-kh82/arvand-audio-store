@@ -10,6 +10,10 @@ use App\Core\Csrf;
 use App\Core\Session;
 use App\Models\User;
 use App\Models\Order;
+use App\Models\VerificationCode;
+use App\Core\Mailer;
+
+
 
 final class AuthController extends Controller
 {
@@ -17,10 +21,19 @@ final class AuthController extends Controller
 
     private Order $orders;
 
+    private VerificationCode $verificationCodes;
+
+    private Mailer $mailer;
+
     public function __construct()
     {
         $this->users = new User();
+
         $this->orders = new Order();
+
+        $this->verificationCodes = new VerificationCode();
+        
+        $this->mailer = new Mailer();
     }
 
     public function showLogin(): void
@@ -103,19 +116,52 @@ final class AuthController extends Controller
             );
             return;
         }
+        
+        // ====== بررسی تأیید ایمیل ======
+        if ($user['email_verified_at'] === null) {
+            Session::put(
+                'pending_verification_user',
+                $user['id']
+            );
+            
+            $this->redirect('/verify-email');
+            return;
+        }
 
-        Session::regenerate(true);
-
-        Auth::login(
-            $this->users->publicUser($user)
+        $code = $this->generateVerificationCode();
+        
+        $this->verificationCodes->invalidatePrevious(
+            $id,
+            'email_verification'
         );
-
+        
+        $this->verificationCodes->create(
+            $id,
+            'email_verification',
+            $code,
+            10
+        );
+        
+        
+        Mailer::sendVerificationCode(
+            $email,
+            $code
+        );
+        
+        
+        Session::put(
+            'pending_verification_user',
+            $id
+        );
+        
+        
         Session::flash(
             'success',
-            'با موفقیت وارد شدید.'
+            'کد تایید به ایمیل شما ارسال شد.'
         );
-
-        $this->redirect('/account');
+        
+        
+        $this->redirect('/verify-email');
     }
 
     public function register(): void
@@ -215,18 +261,32 @@ final class AuthController extends Controller
             );
         }
 
-        Session::regenerate(true);
+        $code = (string) random_int(100000, 999999);
 
-        Auth::login(
-            $this->users->publicUser($user)
+        $this->verificationCodes->invalidatePrevious(
+            $id,
+            'email_verification'
         );
 
-        Session::flash(
-            'success',
-            'ثبت‌نام با موفقیت انجام شد.'
+        $this->verificationCodes->create(
+            $id,
+            'email_verification',
+            $code
         );
 
-        $this->redirect('/account');
+        $this->mailer->sendVerificationCode(
+            $email,
+            $name,
+            $code
+        );
+
+        Session::put(
+            'pending_verification_user',
+            $id
+        );
+
+        $this->redirect('/verify-email');
+
     }
 
     public function account(): void
@@ -335,5 +395,10 @@ final class AuthController extends Controller
                 (string) ($_POST['email'] ?? '')
             ),
         ];
+    }
+
+    private function generateVerificationCode(): string
+    {
+        return (string) random_int(100000, 999999);
     }
 }

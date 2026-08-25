@@ -26,6 +26,25 @@ class User extends Model
         return $user !== false ? $user : null;
     }
 
+    public function findByLogin(string $login): ?array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT *
+             FROM users
+             WHERE email = :login
+                OR phone = :login
+             LIMIT 1'
+        );
+
+        $stmt->execute([
+            ':login' => $login,
+        ]);
+
+        $user = $stmt->fetch();
+
+        return $user !== false ? $user : null;
+    }
+
     public function create(array $data): int
     {
         $stmt = $this->db->prepare(
@@ -50,10 +69,41 @@ class User extends Model
             'id' => $user['id'] ?? null,
             'name' => $user['name'] ?? '',
             'email' => $user['email'] ?? '',
+            'phone' => $user['phone'] ?? null,
+            'email_verified_at' => $user['email_verified_at'] ?? null,
             'role' => $user['role'] ?? 'customer',
             'status' => $user['status'] ?? 'active',
             'created_at' => $user['created_at'] ?? null,
             'updated_at' => $user['updated_at'] ?? null,
         ];
+    }
+
+    public function markEmailVerified(int $userId): bool
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE users
+             SET email_verified_at = NOW(),
+                 updated_at = NOW()
+             WHERE id = :id'
+        );
+
+        return $stmt->execute([
+            ':id' => $userId,
+        ]);
+    }
+
+    public function updatePhone(int $userId,?string $phone): bool
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE users
+             SET phone = :phone,
+                 updated_at = NOW()
+             WHERE id = :id'
+        );
+
+        return $stmt->execute([
+            ':phone' => $phone,
+            ':id' => $userId,
+        ]);
     }
 }
