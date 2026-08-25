@@ -36,94 +36,95 @@ final class Router
         ];
     }
 
-public function dispatch(): void
-{
-    $method = strtoupper(
-        $_SERVER['REQUEST_METHOD'] ?? 'GET'
-    );
-
-    $uri = parse_url(
-        $_SERVER['REQUEST_URI'] ?? '/',
-        PHP_URL_PATH
-    );
-
-    if (!is_string($uri) || $uri === '') {
-        $uri = '/';
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Remove Application Base URL
-    |--------------------------------------------------------------------------
-    */
-
-    $baseUrl = '';
-
-    if (function_exists('app_config')) {
-        $baseUrl = (string) app_config(
-            'base_url',
-            ''
+    public function dispatch(): void
+    {
+        $method = strtoupper(
+            $_SERVER['REQUEST_METHOD'] ?? 'GET'
         );
-    }
 
-    $baseUrl = $this->normalizePath($baseUrl);
-
-    if (
-        $baseUrl !== '/'
-        && $baseUrl !== ''
-        && (
-            $uri === $baseUrl
-            || str_starts_with(
-                $uri,
-                $baseUrl . '/'
-            )
-        )
-    ) {
-        $uri = substr(
-            $uri,
-            strlen($baseUrl)
+        $uri = parse_url(
+            $_SERVER['REQUEST_URI'] ?? '/',
+            PHP_URL_PATH
         );
-    }
 
-    $path = $this->normalizePath($uri);
-
-    foreach ($this->routes as $route) {
-        if ($route['method'] !== $method) {
-            continue;
+        if (!is_string($uri) || $uri === '') {
+            $uri = '/';
         }
 
-        $pattern = $this->compilePattern(
-            $route['path']
-        );
+        /*
+        |--------------------------------------------------------------------------
+        | Remove Application Base URL
+        |--------------------------------------------------------------------------
+        */
+
+        $baseUrl = '';
+
+        if (function_exists('app_config')) {
+            $baseUrl = (string) app_config(
+                'base_url',
+                ''
+            );
+        }
+
+        $baseUrl = $this->normalizePath($baseUrl);
 
         if (
-            !preg_match(
-                $pattern,
-                $path,
-                $matches
+            $baseUrl !== '/'
+            && $baseUrl !== ''
+            && (
+                $uri === $baseUrl
+                || str_starts_with(
+                    $uri,
+                    $baseUrl . '/'
+                )
             )
         ) {
-            continue;
+            $uri = substr(
+                $uri,
+                strlen($baseUrl)
+            );
         }
 
-        $parameters = [];
+        $path = $this->normalizePath($uri);
 
-        foreach ($matches as $key => $value) {
-            if (is_string($key)) {
-                $parameters[$key] = urldecode($value);
+        foreach ($this->routes as $route) {
+            if ($route['method'] !== $method) {
+                continue;
             }
+
+            $pattern = $this->compilePattern(
+                $route['path']
+            );
+
+            if (
+                !preg_match(
+                    $pattern,
+                    $path,
+                    $matches
+                )
+            ) {
+                continue;
+            }
+
+            $parameters = [];
+
+            foreach ($matches as $key => $value) {
+                if (is_string($key)) {
+                    $parameters[$key] = urldecode($value);
+                }
+            }
+
+            $this->execute(
+                $route['handler'],
+                $parameters
+            );
+
+            return;
         }
 
-        $this->execute(
-            $route['handler'],
-            $parameters
-        );
-
-        return;
+        $this->notFound();
     }
 
-    $this->notFound();
-}
     private function compilePattern(
         string $path
     ): string {
@@ -253,8 +254,64 @@ public function dispatch(): void
             );
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Convert route parameters according to Controller type
+        |--------------------------------------------------------------------------
+        */
+
+        $routeParameters = array_values($parameters);
+
+        $reflection = new \ReflectionMethod(
+            $controller,
+            $method
+        );
+
+        $methodParameters = $reflection->getParameters();
+
+        foreach ($methodParameters as $index => $parameter) {
+            if (!array_key_exists($index, $routeParameters)) {
+                continue;
+            }
+
+            $type = $parameter->getType();
+
+            if (!$type instanceof \ReflectionNamedType) {
+                continue;
+            }
+
+            if (!$type->isBuiltin()) {
+                continue;
+            }
+
+            switch ($type->getName()) {
+                case 'int':
+                    $routeParameters[$index] =
+                        (int) $routeParameters[$index];
+                    break;
+
+                case 'float':
+                    $routeParameters[$index] =
+                        (float) $routeParameters[$index];
+                    break;
+
+                case 'bool':
+                    $routeParameters[$index] =
+                        filter_var(
+                            $routeParameters[$index],
+                            FILTER_VALIDATE_BOOLEAN
+                        );
+                    break;
+
+                case 'string':
+                    $routeParameters[$index] =
+                        (string) $routeParameters[$index];
+                    break;
+            }
+        }
+
         $controller->{$method}(
-            ...array_values($parameters)
+            ...$routeParameters
         );
     }
 
@@ -300,6 +357,7 @@ public function dispatch(): void
         http_response_code(404);
 
         echo '404 - صفحه مورد نظر پیدا نشد.';
+
         exit;
     }
 }

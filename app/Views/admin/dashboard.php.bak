@@ -624,20 +624,6 @@ $paymentStatusLabels = [
                     مدیریت کاربران
                 </a>
 
-                <a
-                    href="<?= $e($url('/admin/categories')) ?>"
-                    class="btn btn-outline-success"
-                >
-                    مدیریت دسته‌بندی‌ها
-                </a>
-
-                <a
-                    href="<?= $e($url('/admin/brands')) ?>"
-                    class="btn btn-outline-warning"
-                >
-                    مدیریت برندها
-                </a>
-
             </div>
 
         </div>

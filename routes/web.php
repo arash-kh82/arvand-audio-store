@@ -208,6 +208,88 @@ $router->post(
 
 /*
 |--------------------------------------------------------------------------
+| Admin Categories
+|--------------------------------------------------------------------------
+*/
+
+$router->get(
+    '/admin/categories',
+    [App\Controllers\AdminCategoryController::class, 'index']
+);
+
+$router->get(
+    '/admin/categories/create',
+    [App\Controllers\AdminCategoryController::class, 'create']
+);
+
+$router->post(
+    '/admin/categories',
+    [App\Controllers\AdminCategoryController::class, 'store']
+);
+
+$router->get(
+    '/admin/categories/{id}/edit',
+    [App\Controllers\AdminCategoryController::class, 'edit']
+);
+
+$router->post(
+    '/admin/categories/{id}/update',
+    [App\Controllers\AdminCategoryController::class, 'update']
+);
+
+$router->post(
+    '/admin/categories/{id}/status',
+    [App\Controllers\AdminCategoryController::class, 'toggleStatus']
+);
+
+$router->post(
+    '/admin/categories/{id}/delete',
+    [App\Controllers\AdminCategoryController::class, 'delete']
+);
+
+/*
+|--------------------------------------------------------------------------
+| Admin Brands
+|--------------------------------------------------------------------------
+*/
+
+$router->get(
+    '/admin/brands',
+    [App\Controllers\AdminBrandController::class, 'index']
+);
+
+$router->get(
+    '/admin/brands/create',
+    [App\Controllers\AdminBrandController::class, 'create']
+);
+
+$router->post(
+    '/admin/brands',
+    [App\Controllers\AdminBrandController::class, 'store']
+);
+
+$router->get(
+    '/admin/brands/{id}/edit',
+    [App\Controllers\AdminBrandController::class, 'edit']
+);
+
+$router->post(
+    '/admin/brands/{id}/update',
+    [App\Controllers\AdminBrandController::class, 'update']
+);
+
+$router->post(
+    '/admin/brands/{id}/status',
+    [App\Controllers\AdminBrandController::class, 'toggleStatus']
+);
+
+$router->post(
+    '/admin/brands/{id}/delete',
+    [App\Controllers\AdminBrandController::class, 'delete']
+);
+
+/*
+|--------------------------------------------------------------------------
 | Admin Orders
 |--------------------------------------------------------------------------
 */
@@ -262,7 +344,6 @@ $router->post(
     '/admin/users/{id}/status',
     [App\Controllers\AdminUserController::class, 'updateStatus']
 );
-
 
 /*
 |--------------------------------------------------------------------------
