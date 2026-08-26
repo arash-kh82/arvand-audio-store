@@ -30,6 +30,43 @@ $baseUrl = rtrim(
     (string) app_config('base_url', ''),
     '/'
 );
+
+$images = is_array($images ?? null)
+    ? $images
+    : [];
+
+$galleryImages = [];
+
+foreach ($images as $image) {
+
+    $galleryImages[] = [
+        'url' => $baseUrl
+            . '/'
+            . ltrim(
+                (string) $image['image'],
+                '/'
+            ),
+        'alt' => (string) (
+            $image['alt_text']
+            ?? $name
+        ),
+    ];
+}
+
+if (
+    $galleryImages === []
+    && !empty($product['image'])
+) {
+    $galleryImages[] = [
+        'url' => $baseUrl
+            . '/'
+            . ltrim(
+                (string) $product['image'],
+                '/'
+            ),
+        'alt' => $name,
+    ];
+}
 ?>
 
 <!DOCTYPE html>
@@ -164,8 +201,42 @@ $baseUrl = rtrim(
             color: #222;
         }
 
-        /* Modal */
+        /* Gallery */
+        .product-gallery {
+            margin-bottom: 30px;
+        }
 
+        .product-main-image {
+            width: 100%;
+            height: 420px;
+            object-fit: contain;
+            background: #f8f9fa;
+            border-radius: 10px;
+            display: block;
+        }
+
+        .product-thumbnails {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .product-thumbnail {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #f8f9fa;
+        }
+
+        .product-thumbnail.active {
+            border-color: #222;
+        }
+
+        /* Modal */
         .cart-modal {
             position: fixed;
             inset: 0;
@@ -268,6 +339,68 @@ $baseUrl = rtrim(
     <?php endif; ?>
 
     <div class="product">
+
+        <!-- Gallery -->
+        <?php if ($galleryImages !== []): ?>
+
+            <div class="product-gallery">
+
+                <img
+                    src="<?= htmlspecialchars(
+                        $galleryImages[0]['url'],
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>"
+                    alt="<?= htmlspecialchars(
+                        $galleryImages[0]['alt'],
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>"
+                    class="product-main-image"
+                    id="productMainImage"
+                >
+
+                <?php if (count($galleryImages) > 1): ?>
+
+                    <div class="product-thumbnails">
+
+                        <?php foreach (
+                            $galleryImages as $index => $galleryImage
+                        ): ?>
+
+                            <img
+                                src="<?= htmlspecialchars(
+                                    $galleryImage['url'],
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ) ?>"
+                                alt="<?= htmlspecialchars(
+                                    $galleryImage['alt'],
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ) ?>"
+                                class="product-thumbnail <?= $index === 0 ? 'active' : '' ?>"
+                                data-full-image="<?= htmlspecialchars(
+                                    $galleryImage['url'],
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ) ?>"
+                                data-alt="<?= htmlspecialchars(
+                                    $galleryImage['alt'],
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ) ?>"
+                            >
+
+                        <?php endforeach; ?>
+
+                    </div>
+
+                <?php endif; ?>
+
+            </div>
+
+        <?php endif; ?>
 
         <h1>
             <?= htmlspecialchars(
@@ -671,6 +804,47 @@ $baseUrl = rtrim(
 </script>
 
 <?php endif; ?>
+
+<!-- Gallery JavaScript -->
+<script>
+document.querySelectorAll('.product-thumbnail')
+    .forEach(function (thumbnail) {
+
+        thumbnail.addEventListener(
+            'click',
+            function () {
+
+                const mainImage =
+                    document.getElementById(
+                        'productMainImage'
+                    );
+
+                if (!mainImage) {
+                    return;
+                }
+
+                mainImage.src =
+                    this.dataset.fullImage;
+
+                mainImage.alt =
+                    this.dataset.alt || '';
+
+                document
+                    .querySelectorAll(
+                        '.product-thumbnail'
+                    )
+                    .forEach(function (item) {
+                        item.classList.remove(
+                            'active'
+                        );
+                    });
+
+                this.classList.add('active');
+            }
+        );
+
+    });
+</script>
 
 </body>
 

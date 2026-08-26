@@ -176,6 +176,12 @@ $router->get(
     [App\Controllers\AdminDashboardController::class, 'index']
 );
 
+/*
+|--------------------------------------------------------------------------
+| Admin Products
+|--------------------------------------------------------------------------
+*/
+
 $router->get(
     '/admin/products',
     [App\Controllers\AdminProductController::class, 'index']
@@ -204,6 +210,21 @@ $router->post(
 $router->post(
     '/admin/products/{id}/delete',
     [App\Controllers\AdminProductController::class, 'delete']
+);
+
+$router->post(
+    '/admin/products/{id}/images',
+    [App\Controllers\AdminProductController::class, 'uploadImage']
+);
+
+$router->post(
+    '/admin/products/{id}/images/{imageId}/primary',
+    [App\Controllers\AdminProductController::class, 'setPrimaryImage']
+);
+
+$router->post(
+    '/admin/products/{id}/images/{imageId}/delete',
+    [App\Controllers\AdminProductController::class, 'deleteImage']
 );
 
 /*

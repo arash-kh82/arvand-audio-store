@@ -34,6 +34,10 @@ $selectedSort = (string) (
 
 $inStock = (bool) ($inStock ?? false);
 
+$baseUrl = rtrim(
+    (string) app_config('base_url', ''),
+    '/'
+);
 
 /**
  * تبدیل قیمت به نمایش خوانا
@@ -55,17 +59,6 @@ function productPrice(array $product): string
         0,
         '.',
         ','
-    );
-}
-
-
-/**
- * نمایش تصویر محصول
- */
-function productImage(array $product): string
-{
-    return trim(
-        (string) ($product['image'] ?? '')
     );
 }
 
@@ -120,22 +113,17 @@ function productImage(array $product): string
             height: 220px;
             object-fit: contain;
             background: #fff;
+            width: 100%;
         }
 
         .product-placeholder {
             height: 220px;
-
             display: flex;
-
             align-items: center;
-
             justify-content: center;
-
             background: #f1f3f5;
-
             color: #6c757d;
-
-            font-size: 3rem;
+            font-size: 4rem;
         }
 
         .price {
@@ -164,7 +152,7 @@ function productImage(array $product): string
 
         <a
             class="navbar-brand fw-bold"
-            href="/arvand-audio-store/public/"
+            href="<?= $baseUrl ?>/"
         >
             Arvand Audio Store
         </a>
@@ -193,7 +181,7 @@ function productImage(array $product): string
 
                     <a
                         class="nav-link active"
-                        href="/arvand-audio-store/public/products"
+                        href="<?= $baseUrl ?>/products"
                     >
                         محصولات
                     </a>
@@ -204,7 +192,7 @@ function productImage(array $product): string
 
                     <a
                         class="nav-link"
-                        href="/arvand-audio-store/public/"
+                        href="<?= $baseUrl ?>/"
                     >
                         خانه
                     </a>
@@ -265,7 +253,7 @@ function productImage(array $product): string
 
                     <form
                         method="GET"
-                        action="/arvand-audio-store/public/products"
+                        action="<?= $baseUrl ?>/products"
                     >
 
 
@@ -566,7 +554,7 @@ function productImage(array $product): string
                         </button>
 
                         <a
-                            href="/arvand-audio-store/public/products"
+                            href="<?= $baseUrl ?>/products"
                             class="btn btn-outline-secondary w-100"
                         >
                             پاک کردن فیلترها
@@ -665,16 +653,18 @@ function productImage(array $product): string
                             >
 
                                 <?php
-                                $image = productImage(
-                                    $product
-                                );
+                                $productImage = trim((string) ($product['image'] ?? ''));
+
+                                if ($productImage !== '') {
+                                    $productImageUrl = $baseUrl . '/' . ltrim($productImage, '/');
+                                }
                                 ?>
 
-                                <?php if ($image !== ''): ?>
+                                <?php if ($productImage !== ''): ?>
 
                                     <img
                                         src="<?= htmlspecialchars(
-                                            $image,
+                                            $productImageUrl,
                                             ENT_QUOTES,
                                             'UTF-8'
                                         ) ?>"
@@ -688,9 +678,7 @@ function productImage(array $product): string
 
                                 <?php else: ?>
 
-                                    <div
-                                        class="product-placeholder"
-                                    >
+                                    <div class="product-placeholder">
                                         🎧
                                     </div>
 
@@ -793,7 +781,7 @@ function productImage(array $product): string
 
 
                                     <a
-                                        href="/arvand-audio-store/public/products/<?= urlencode(
+                                        href="<?= $baseUrl ?>/products/<?= urlencode(
                                             $product['slug']
                                         ) ?>"
                                         class="btn btn-dark mt-3"

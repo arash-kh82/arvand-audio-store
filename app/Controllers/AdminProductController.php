@@ -10,18 +10,21 @@ use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
 use Throwable;
+use App\Models\ProductImage;
 
 final class AdminProductController extends AdminController
 {
     private Product $products;
     private Category $categories;
     private Brand $brands;
+    private ProductImage $productImages;
 
     public function __construct()
     {
         $this->products = new Product();
         $this->categories = new Category();
         $this->brands = new Brand();
+        $this->productImages = new ProductImage();
     }
 
     /**
@@ -130,6 +133,9 @@ final class AdminProductController extends AdminController
                 'product' => $product,
                 'categories' => $this->categories->getActiveCategories(),
                 'brands' => $this->brands->getActiveBrands(),
+                'images' => $this->productImages->getByProductId(
+                    (int) $product['id']
+                ),
                 'csrfField' => Csrf::field(),
             ]
         );
@@ -318,7 +324,7 @@ final class AdminProductController extends AdminController
     public function delete($id): void
     {
         $this->requireAdmin();
-        
+
         $id = (int) $id;
 
         if (!Csrf::validate($_POST['_token'] ?? null)) {
@@ -364,6 +370,286 @@ final class AdminProductController extends AdminController
         );
 
         $this->redirect('/admin/products');
+    }
+
+    /**
+     * آپلود تصویر محصول
+     */
+    public function uploadImage($id): void
+    {
+        $this->requireAdmin();
+
+        $id = (int) $id;
+
+        if ($id <= 0) {
+            Session::flash(
+                'error',
+                'شناسه محصول نامعتبر است.'
+            );
+
+            $this->redirect('/admin/products');
+        }
+
+        if (!Csrf::validate($_POST['_token'] ?? null)) {
+            Session::flash(
+                'error',
+                'درخواست امنیتی نامعتبر است.'
+            );
+
+            $this->redirect(
+                '/admin/products/' . $id . '/edit'
+            );
+        }
+
+        $product = $this->products->findAdminById($id);
+
+        if ($product === null) {
+            Session::flash(
+                'error',
+                'محصول مورد نظر پیدا نشد.'
+            );
+
+            $this->redirect('/admin/products');
+        }
+
+        try {
+
+            $file = $_FILES['image'] ?? [];
+
+            $extension =
+                $this->productImages->validateUpload(
+                    $file
+                );
+
+            $filename =
+                $this->productImages->storeUploadedFile(
+                    $file,
+                    $extension
+                );
+
+            $imageId =
+                $this->productImages->create(
+                    $id,
+                    $filename,
+                    (string) (
+                        $_POST['alt_text'] ?? ''
+                    )
+                );
+
+            $images =
+                $this->productImages->getByProductId(
+                    $id
+                );
+
+            if (count($images) === 1) {
+                $this->productImages->setPrimary(
+                    $imageId
+                );
+            }
+        } catch (Throwable $exception) {
+
+            if (
+                isset($filename)
+                && $filename !== ''
+            ) {
+                $this->productImages->deleteFile(
+                    ProductImage::publicPath(
+                        $filename
+                    )
+                );
+            }
+
+            Session::flash(
+                'error',
+                $exception->getMessage()
+            );
+
+            $this->redirect(
+                '/admin/products/' . $id . '/edit'
+            );
+        }
+
+        Session::flash(
+            'success',
+            'تصویر با موفقیت آپلود شد.'
+        );
+
+        $this->redirect(
+            '/admin/products/' . $id . '/edit'
+        );
+    }
+
+
+    /**
+     * تعیین تصویر اصلی
+     */
+    public function setPrimaryImage($id, $imageId): void
+    {
+        $this->requireAdmin();
+
+        $id = (int) $id;
+        $imageId = (int) $imageId;
+
+        if ($id <= 0 || $imageId <= 0) {
+            Session::flash(
+                'error',
+                'شناسه تصویر یا محصول نامعتبر است.'
+            );
+
+            $this->redirect('/admin/products');
+        }
+
+        if (!Csrf::validate($_POST['_token'] ?? null)) {
+            Session::flash(
+                'error',
+                'درخواست امنیتی نامعتبر است.'
+            );
+
+            $this->redirect(
+                '/admin/products/' . $id . '/edit'
+            );
+        }
+
+        $image =
+            $this->productImages->findById(
+                $imageId
+            );
+
+        if (
+            $image === null
+            || (int) $image['product_id'] !== $id
+        ) {
+            Session::flash(
+                'error',
+                'تصویر مورد نظر پیدا نشد.'
+            );
+
+            $this->redirect(
+                '/admin/products/' . $id . '/edit'
+            );
+        }
+
+        try {
+
+            $updated =
+                $this->productImages->setPrimary(
+                    $imageId
+                );
+        } catch (Throwable $exception) {
+
+            Session::flash(
+                'error',
+                'تغییر تصویر اصلی انجام نشد.'
+            );
+
+            $this->redirect(
+                '/admin/products/' . $id . '/edit'
+            );
+        }
+
+        if (!$updated) {
+            Session::flash(
+                'error',
+                'تغییر تصویر اصلی انجام نشد.'
+            );
+
+            $this->redirect(
+                '/admin/products/' . $id . '/edit'
+            );
+        }
+
+        Session::flash(
+            'success',
+            'تصویر اصلی با موفقیت تغییر کرد.'
+        );
+
+        $this->redirect(
+            '/admin/products/' . $id . '/edit'
+        );
+    }
+
+
+    /**
+     * حذف تصویر محصول
+     */
+    public function deleteImage($id, $imageId): void
+    {
+        $this->requireAdmin();
+
+        $id = (int) $id;
+        $imageId = (int) $imageId;
+
+        if ($id <= 0 || $imageId <= 0) {
+            Session::flash(
+                'error',
+                'شناسه تصویر یا محصول نامعتبر است.'
+            );
+
+            $this->redirect('/admin/products');
+        }
+
+        if (!Csrf::validate($_POST['_token'] ?? null)) {
+            Session::flash(
+                'error',
+                'درخواست امنیتی نامعتبر است.'
+            );
+
+            $this->redirect(
+                '/admin/products/' . $id . '/edit'
+            );
+        }
+
+        $image =
+            $this->productImages->findById(
+                $imageId
+            );
+
+        if (
+            $image === null
+            || (int) $image['product_id'] !== $id
+        ) {
+            Session::flash(
+                'error',
+                'تصویر مورد نظر پیدا نشد.'
+            );
+
+            $this->redirect(
+                '/admin/products/' . $id . '/edit'
+            );
+        }
+
+        try {
+
+            $deleted =
+                $this->productImages->delete(
+                    $imageId
+                );
+
+            if ($deleted !== null) {
+                $this->productImages->deleteFile(
+                    (string) $deleted['image']
+                );
+            }
+        } catch (Throwable $exception) {
+
+            Session::flash(
+                'error',
+                'حذف تصویر انجام نشد.'
+            );
+
+            $this->redirect(
+                '/admin/products/' . $id . '/edit'
+            );
+        }
+
+        Session::flash(
+            'success',
+            'تصویر با موفقیت حذف شد.'
+        );
+
+        $this->redirect(
+            '/admin/products/' . $id . '/edit'
+        );
     }
 
     /**
@@ -479,5 +765,4 @@ final class AdminProductController extends AdminController
             'featured' => $featured,
         ];
     }
-
 }

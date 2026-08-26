@@ -9,20 +9,21 @@ use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
 use App\Core\Csrf;
+use App\Models\ProductImage;
 
 final class ProductController extends Controller
 {
     private Product $products;
-
     private Category $categories;
-
     private Brand $brands;
+    private ProductImage $productImages;
 
     public function __construct()
     {
         $this->products = new Product();
         $this->categories = new Category();
         $this->brands = new Brand();
+        $this->productImages = new ProductImage();
     }
 
     /**
@@ -209,10 +210,10 @@ final class ProductController extends Controller
             'products' => $products,
 
             'categories' =>
-                $this->categories->getActiveCategories(),
+            $this->categories->getActiveCategories(),
 
             'brands' =>
-                $this->brands->getActiveBrands(),
+            $this->brands->getActiveBrands(),
 
             'search' => $search,
 
@@ -236,14 +237,19 @@ final class ProductController extends Controller
     public function show(string $slug): void
     {
         $product = $this->products->findBySlug($slug);
-    
+
         if ($product === null) {
             $this->notFound();
         }
-    
+
+        $images = $this->productImages->getByProductId(
+            (int) $product['id']
+        );
+
         $this->view('products/show', [
             'title' => $product['name'],
             'product' => $product,
+            'images' => $images,
             'csrfField' => Csrf::field(),
         ]);
     }
