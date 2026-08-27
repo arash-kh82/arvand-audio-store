@@ -408,3 +408,9 @@ $router->post(
     '/addresses/delete',
     [App\Controllers\AddressController::class, 'delete']
 );
+
+
+$router->post(
+    '/telegram/webhook',
+    'TelegramController@webhook'
+);

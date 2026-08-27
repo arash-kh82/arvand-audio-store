@@ -5,3 +5,6 @@
 .env
 .DS_Store
 Thumbs.db
+
+# فایل‌های حاوی اطلاعات محرمانه
+config/secrets.php

@@ -7,6 +7,31 @@ return [
 
     'env' => 'local',
 
+    // ============================================
+    // تنظیمات جدید تلگرام (توکن از secrets.php خوانده می‌شود)
+    // ============================================
+    'telegram' => [
+        'bot_token' => (function (): string {
+            $secretsFile = __DIR__ . '/secrets.php';
+
+            if (!is_file($secretsFile)) {
+                return '';
+            }
+
+            $secrets = require $secretsFile;
+
+            return trim(
+                (string) (
+                    $secrets['telegram_bot_token']
+                    ?? ''
+                )
+            );
+        })(),
+    ],
+
+    // ============================================
+    // تنظیمات فعلی (دست نزنید)
+    // ============================================
     'base_url' => '/arvand-audio-store/public',
 
     'session_name' => 'ARVANDSESSID',
