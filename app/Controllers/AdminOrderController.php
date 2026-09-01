@@ -281,4 +281,60 @@ final class AdminOrderController extends AdminController
             '/admin/orders/' . $id
         );
     }
+
+    /**
+     * حذف کامل سفارش توسط مدیر و برگرداندن موجودی کالاها.
+     */
+    public function delete($id): void
+    {
+        $this->requireAdmin();
+
+        $id = (int) $id;
+
+        if ($id <= 0) {
+            Session::flash(
+                'error',
+                'شناسه سفارش نامعتبر است.'
+            );
+
+            $this->redirect('/admin/orders');
+        }
+
+        if (!Csrf::validate($_POST['_token'] ?? null)) {
+            Session::flash(
+                'error',
+                'درخواست امنیتی نامعتبر است.'
+            );
+
+            $this->redirect('/admin/orders/' . $id);
+        }
+
+        try {
+            $deleted = $this->orders->deleteByAdmin($id);
+        } catch (Throwable $exception) {
+            Session::flash(
+                'error',
+                $exception->getMessage()
+            );
+
+            $this->redirect('/admin/orders/' . $id);
+        }
+
+        if (!$deleted) {
+            Session::flash(
+                'error',
+                'حذف سفارش انجام نشد.'
+            );
+
+            $this->redirect('/admin/orders/' . $id);
+        }
+
+        Session::flash(
+            'success',
+            'سفارش به‌طور کامل حذف شد و موجودی کالاهای آن برگردانده شد.'
+        );
+
+        $this->redirect('/admin/orders');
+    }
+
 }

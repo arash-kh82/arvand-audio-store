@@ -164,6 +164,11 @@ $router->get(
     [App\Controllers\OrderController::class, 'show']
 );
 
+$router->post(
+    '/orders/{id}/cancel',
+    [App\Controllers\OrderController::class, 'cancel']
+);
+
 
 /*
 |--------------------------------------------------------------------------
@@ -333,6 +338,11 @@ $router->post(
 $router->post(
     '/admin/orders/{id}/payment-status',
     [App\Controllers\AdminOrderController::class, 'updatePaymentStatus']
+);
+
+$router->post(
+    '/admin/orders/{id}/delete',
+    [App\Controllers\AdminOrderController::class, 'delete']
 );
 
 /*

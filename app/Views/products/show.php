@@ -2,34 +2,74 @@
 
 declare(strict_types=1);
 
-use App\Core\Auth;
-use App\Core\Session;
-use App\Core\Csrf;
-
 $product = is_array($product ?? null)
     ? $product
     : [];
-
-$success = Session::flash('success');
-$error = Session::flash('error');
-
-$name = (string) ($product['name'] ?? '');
-$description = (string) ($product['description'] ?? '');
-$price = (float) ($product['price'] ?? 0);
-
-$discountPrice = $product['discount_price'] !== null
-    ? (float) $product['discount_price']
-    : null;
-
-$stock = (int) ($product['stock'] ?? 0);
-$brandName = (string) ($product['brand_name'] ?? '');
-$categoryName = (string) ($product['category_name'] ?? '');
-$sku = (string) ($product['sku'] ?? '');
 
 $baseUrl = rtrim(
     (string) app_config('base_url', ''),
     '/'
 );
+
+$productName = (string) (
+    $product['name']
+    ?? $product['title']
+    ?? 'محصول'
+);
+
+$productSlug = (string) (
+    $product['slug']
+    ?? ''
+);
+
+$description = trim(
+    (string) (
+        $product['description']
+        ?? ''
+    )
+);
+
+$price = (float) (
+    $product['price']
+    ?? 0
+);
+
+$discountPrice = $product['discount_price']
+    ?? null;
+
+$finalPrice = (
+    $discountPrice !== null
+    && $discountPrice !== ''
+    && (float) $discountPrice > 0
+)
+    ? (float) $discountPrice
+    : $price;
+
+$stock = (int) (
+    $product['stock']
+    ?? 0
+);
+
+$brandName = (string) (
+    $product['brand_name']
+    ?? ''
+);
+
+$categoryName = (string) (
+    $product['category_name']
+    ?? ''
+);
+
+$sku = (string) (
+    $product['sku']
+    ?? ''
+);
+
+/*
+ * =========================================================
+ * Product Images
+ * =========================================================
+ */
 
 $images = is_array($images ?? null)
     ? $images
@@ -39,6 +79,13 @@ $galleryImages = [];
 
 foreach ($images as $image) {
 
+    if (
+        !isset($image['image'])
+        || trim((string) $image['image']) === ''
+    ) {
+        continue;
+    }
+
     $galleryImages[] = [
         'url' => $baseUrl
             . '/'
@@ -46,9 +93,10 @@ foreach ($images as $image) {
                 (string) $image['image'],
                 '/'
             ),
+
         'alt' => (string) (
             $image['alt_text']
-            ?? $name
+            ?? $productName
         ),
     ];
 }
@@ -64,15 +112,38 @@ if (
                 (string) $product['image'],
                 '/'
             ),
-        'alt' => $name,
+
+        'alt' => $productName,
     ];
 }
+
+$hasDiscount =
+    $price > 0
+    && $finalPrice > 0
+    && $finalPrice < $price;
+
+$discountPercent = $hasDiscount
+    ? (int) round(
+        (
+            1
+            - (
+                $finalPrice / $price
+            )
+        ) * 100
+    )
+    : 0;
+
 ?>
 
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+
+<html
+    lang="fa"
+    dir="rtl"
+>
 
 <head>
+
     <meta charset="UTF-8">
 
     <meta
@@ -82,769 +153,1513 @@ if (
 
     <title>
         <?= htmlspecialchars(
-            (string) ($title ?? $name),
+            $productName,
             ENT_QUOTES,
             'UTF-8'
         ) ?>
+        | آروند Audio
     </title>
 
+    <meta
+        name="description"
+        content="<?= htmlspecialchars(
+            mb_substr(
+                $description,
+                0,
+                160
+            ),
+            ENT_QUOTES,
+            'UTF-8'
+        ) ?>"
+    >
+
+    <link
+        rel="stylesheet"
+        href="<?= $baseUrl ?>/assets/css/app.css"
+    >
+
     <style>
-        body {
-            font-family: Tahoma, Arial, sans-serif;
-            background: #f5f5f5;
-            margin: 0;
-            padding: 30px;
-            color: #222;
+
+        .product-page {
+            padding-block: 38px 70px;
         }
 
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
-        .product {
-            background: #fff;
-            padding: 30px;
-            border-radius: 10px;
-        }
-
-        h1 {
-            margin-top: 0;
-        }
-
-        .meta {
-            color: #666;
-            margin: 8px 0;
-        }
-
-        .description {
-            margin: 25px 0;
-            line-height: 2;
-        }
-
-        .price {
-            font-size: 24px;
-            font-weight: bold;
-            margin: 20px 0;
-        }
-
-        .old-price {
-            text-decoration: line-through;
-            color: #888;
-            font-size: 17px;
-            margin-left: 10px;
-        }
-
-        .stock {
-            margin-bottom: 20px;
-        }
-
-        .available {
-            color: #16803c;
-        }
-
-        .unavailable {
-            color: #b42318;
-        }
-
-        .cart-form {
+        .product-breadcrumb {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
-            gap: 10px;
-            margin-top: 20px;
+            gap: 7px;
+
+            margin-bottom: 25px;
+
+            color: #858b95;
+            font-size: .78rem;
         }
 
-        input[type="number"] {
-            width: 80px;
-            padding: 10px;
-            text-align: center;
+        .product-breadcrumb a {
+            color: #737985;
         }
 
-        button {
-            border: 0;
-            background: #222;
-            color: #fff;
-            padding: 11px 20px;
-            border-radius: 6px;
-            cursor: pointer;
+        .product-breadcrumb a:hover {
+            color: #111;
         }
 
-        button:disabled {
-            background: #999;
-            cursor: not-allowed;
+        .product-layout {
+            display: grid;
+            grid-template-columns:
+                minmax(0, 1.05fr)
+                minmax(340px, .95fr);
+
+            gap: 45px;
+            align-items: start;
         }
 
-        .message {
-            padding: 12px 15px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-        }
-
-        .success {
-            background: #dff5e3;
-            color: #176b2c;
-        }
-
-        .error {
-            background: #fde2e2;
-            color: #9b1c1c;
-        }
-
-        .login-message {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f1f1f1;
-            border-radius: 6px;
-        }
-
-        a {
-            color: #222;
-        }
-
-        /* Gallery */
         .product-gallery {
-            margin-bottom: 30px;
+            position: sticky;
+            top: 100px;
         }
 
         .product-main-image {
+            position: relative;
+
             width: 100%;
-            height: 420px;
+            min-height: 470px;
+
+            display: grid;
+            place-items: center;
+
+            overflow: hidden;
+
+            background: #fff;
+
+            border: 1px solid #e6e8eb;
+            border-radius: 22px;
+        }
+
+        .product-main-image img {
+            width: 100%;
+            height: 470px;
+
             object-fit: contain;
-            background: #f8f9fa;
-            border-radius: 10px;
-            display: block;
+
+            padding: 35px;
+        }
+
+        .product-image-placeholder {
+            font-size: 8rem;
+            opacity: .7;
+        }
+
+        .product-discount-badge {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+
+            padding: 6px 12px;
+
+            border-radius: 999px;
+
+            background: #ef4444;
+            color: #fff;
+
+            font-size: .75rem;
+            font-weight: 800;
         }
 
         .product-thumbnails {
             display: flex;
-            gap: 10px;
             flex-wrap: wrap;
-            margin-top: 12px;
+
+            gap: 10px;
+
+            margin-top: 13px;
         }
 
         .product-thumbnail {
-            width: 80px;
-            height: 80px;
-            object-fit: cover;
-            border: 2px solid transparent;
-            border-radius: 8px;
+            width: 72px;
+            height: 72px;
+
+            padding: 5px;
+
+            object-fit: contain;
+
+            background: #fff;
+
+            border: 1px solid #e1e4e8;
+            border-radius: 10px;
+
             cursor: pointer;
-            background: #f8f9fa;
+        }
+
+        .product-thumbnail:hover {
+            border-color: #f59e0b;
         }
 
         .product-thumbnail.active {
-            border-color: #222;
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, .2);
         }
 
-        /* Modal */
-        .cart-modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.45);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            padding: 20px;
+        .product-info {
+            padding-top: 8px;
         }
 
-        .cart-modal.show {
+        .product-brand {
+            display: inline-block;
+
+            margin-bottom: 8px;
+
+            color: #a16207;
+
+            font-size: .82rem;
+            font-weight: 800;
+        }
+
+        .product-title {
+            margin: 0 0 12px;
+
+            color: #15171b;
+
+            font-size: clamp(
+                1.7rem,
+                3vw,
+                2.45rem
+            );
+
+            line-height: 1.35;
+            font-weight: 950;
+        }
+
+        .product-category {
+            margin-bottom: 22px;
+
+            color: #7b818b;
+            font-size: .82rem;
+        }
+
+        .product-rating {
             display: flex;
+            align-items: center;
+            gap: 8px;
+
+            margin-bottom: 25px;
+
+            color: #f59e0b;
+            font-size: .95rem;
         }
 
-        .cart-modal-box {
-            width: 100%;
-            max-width: 420px;
+        .product-rating span {
+            color: #858b95;
+            font-size: .78rem;
+        }
+
+        .product-price-box {
+            padding: 22px;
+
+            margin-bottom: 22px;
+
+            background: #f8f9fa;
+
+            border: 1px solid #e8eaed;
+            border-radius: 16px;
+        }
+
+        .product-price-label {
+            margin-bottom: 5px;
+
+            color: #7a8089;
+
+            font-size: .78rem;
+        }
+
+        .product-price {
+            color: #111;
+
+            font-size: 1.8rem;
+            font-weight: 950;
+        }
+
+        .product-price-unit {
+            margin-right: 5px;
+
+            color: #747a84;
+
+            font-size: .8rem;
+            font-weight: 600;
+        }
+
+        .product-old-price {
+            margin-right: 10px;
+
+            color: #a0a5ad;
+
+            font-size: .9rem;
+
+            text-decoration: line-through;
+        }
+
+        .product-stock {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            margin-top: 10px;
+
+            font-size: .78rem;
+            font-weight: 700;
+        }
+
+        .stock-available {
+            color: #16a34a;
+        }
+
+        .stock-unavailable {
+            color: #dc2626;
+        }
+
+        .product-buy-box {
+            padding: 22px;
+
             background: #fff;
-            border-radius: 14px;
-            padding: 25px;
-            text-align: center;
-            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
+
+            border: 1px solid #e4e7eb;
+            border-radius: 16px;
+
+            box-shadow:
+                0 8px 30px rgba(0, 0, 0, .05);
         }
 
-        .cart-modal-icon {
-            font-size: 42px;
-            margin-bottom: 10px;
+        .quantity-label {
+            display: block;
+
+            margin-bottom: 9px;
+
+            color: #4c525c;
+
+            font-size: .82rem;
+            font-weight: 800;
         }
 
-        .cart-modal-title {
-            font-size: 21px;
-            font-weight: bold;
-            margin-bottom: 12px;
-        }
+        .quantity-control {
+            display: flex;
+            align-items: center;
 
-        .cart-modal-message {
-            color: #555;
-            line-height: 1.9;
-            margin-bottom: 20px;
-        }
+            width: 145px;
 
-        .cart-modal-button {
-            min-width: 120px;
-        }
+            margin-bottom: 15px;
 
-        .cart-modal.success .cart-modal-title {
-            color: #176b2c;
-        }
-
-        .cart-modal.error .cart-modal-title {
-            color: #b42318;
-        }
-
-        .cart-link {
-            display: inline-block;
-            margin-top: 15px;
-        }
-
-        .cart-count {
-            display: inline-block;
-            min-width: 20px;
-            padding: 2px 6px;
-            margin-right: 4px;
+            border: 1px solid #dfe2e6;
             border-radius: 10px;
-            background: #222;
-            color: #fff;
-            font-size: 12px;
+
+            overflow: hidden;
+        }
+
+        .quantity-control button {
+            width: 40px;
+            height: 42px;
+
+            border: 0;
+
+            background: #f5f6f8;
+            color: #333;
+
+            font-size: 1.1rem;
+
+            cursor: pointer;
+        }
+
+        .quantity-control button:hover {
+            background: #eceef1;
+        }
+
+        .quantity-control input {
+            width: 65px;
+            height: 42px;
+
+            border: 0;
+
+            outline: 0;
+
+            text-align: center;
+
+            font-family: inherit;
+            font-weight: 700;
+        }
+
+        .product-buy-button {
+            width: 100%;
+
+            min-height: 50px;
+
+            font-size: .98rem;
+        }
+
+        .product-buy-note {
+            margin-top: 12px;
+
+            color: #888e97;
+
+            font-size: .72rem;
             text-align: center;
         }
+
+        .product-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+
+            gap: 10px;
+
+            margin-top: 20px;
+        }
+
+        .product-meta-item {
+            padding: 13px;
+
+            background: #fff;
+
+            border: 1px solid #e7e9ed;
+            border-radius: 11px;
+        }
+
+        .product-meta-item span {
+            display: block;
+
+            color: #8a9099;
+
+            font-size: .7rem;
+        }
+
+        .product-meta-item strong {
+            display: block;
+
+            margin-top: 2px;
+
+            color: #272a30;
+
+            font-size: .8rem;
+        }
+
+        .product-description-section {
+            margin-top: 60px;
+
+            padding: 30px;
+
+            background: #fff;
+
+            border: 1px solid #e6e8eb;
+            border-radius: 18px;
+        }
+
+        .product-description-section h2 {
+            margin: 0 0 18px;
+
+            font-size: 1.2rem;
+            font-weight: 900;
+        }
+
+        .product-description {
+            color: #606671;
+
+            font-size: .9rem;
+            line-height: 2.1;
+
+            white-space: pre-line;
+        }
+
+        .product-benefits {
+            display: grid;
+
+            grid-template-columns:
+                repeat(4, 1fr);
+
+            gap: 12px;
+
+            margin-top: 20px;
+        }
+
+        .product-benefit {
+            padding: 18px;
+
+            background: #f8f9fa;
+
+            border-radius: 12px;
+
+            text-align: center;
+        }
+
+        .product-benefit-icon {
+            margin-bottom: 5px;
+
+            font-size: 1.5rem;
+        }
+
+        .product-benefit strong {
+            display: block;
+
+            font-size: .78rem;
+        }
+
+        .product-benefit span {
+            color: #858b95;
+
+            font-size: .68rem;
+        }
+
+        @media (max-width: 992px) {
+
+            .product-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .product-gallery {
+                position: static;
+            }
+
+            .product-main-image {
+                min-height: 400px;
+            }
+
+            .product-main-image img {
+                height: 400px;
+            }
+
+            .product-benefits {
+                grid-template-columns:
+                    repeat(2, 1fr);
+            }
+
+        }
+
+        @media (max-width: 576px) {
+
+            .product-page {
+                padding-block: 25px 45px;
+            }
+
+            .product-main-image {
+                min-height: 310px;
+            }
+
+            .product-main-image img {
+                height: 310px;
+                padding: 20px;
+            }
+
+            .product-image-placeholder {
+                font-size: 5rem;
+            }
+
+            .product-title {
+                font-size: 1.55rem;
+            }
+
+            .product-meta {
+                grid-template-columns: 1fr;
+            }
+
+            .product-description-section {
+                padding: 20px;
+            }
+
+            .product-benefits {
+                grid-template-columns: 1fr 1fr;
+            }
+
+        }
+
     </style>
+
 </head>
 
 <body>
 
-<div class="container">
 
-    <?php if ($success !== null): ?>
+<!-- =========================================================
+     Navbar
+========================================================= -->
 
-        <div class="message success">
-            <?= htmlspecialchars(
-                (string) $success,
-                ENT_QUOTES,
-                'UTF-8'
-            ) ?>
-        </div>
+<nav class="aa-navbar">
 
-    <?php endif; ?>
+    <div class="aa-container">
 
-    <?php if ($error !== null): ?>
+        <div class="aa-navbar-inner">
 
-        <div class="message error">
-            <?= htmlspecialchars(
-                (string) $error,
-                ENT_QUOTES,
-                'UTF-8'
-            ) ?>
-        </div>
+            <a
+                href="<?= $baseUrl ?>"
+                class="aa-brand"
+            >
 
-    <?php endif; ?>
+                <span class="aa-brand-icon">
+                    🎧
+                </span>
 
-    <div class="product">
+                <span>
+                    آروند Audio
+                </span>
 
-        <!-- Gallery -->
-        <?php if ($galleryImages !== []): ?>
+            </a>
 
-            <div class="product-gallery">
 
-                <img
-                    src="<?= htmlspecialchars(
-                        $galleryImages[0]['url'],
-                        ENT_QUOTES,
-                        'UTF-8'
-                    ) ?>"
-                    alt="<?= htmlspecialchars(
-                        $galleryImages[0]['alt'],
-                        ENT_QUOTES,
-                        'UTF-8'
-                    ) ?>"
-                    class="product-main-image"
-                    id="productMainImage"
+            <nav class="aa-nav">
+
+                <a href="<?= $baseUrl ?>">
+                    خانه
+                </a>
+
+                <a href="<?= $baseUrl ?>/products">
+                    محصولات
+                </a>
+
+                <?php if (
+                    class_exists('App\Core\Auth')
+                    && App\Core\Auth::check()
+                ): ?>
+
+                    <a href="<?= $baseUrl ?>/account">
+                        حساب کاربری
+                    </a>
+
+                <?php else: ?>
+
+                    <a href="<?= $baseUrl ?>/login">
+                        ورود
+                    </a>
+
+                <?php endif; ?>
+
+            </nav>
+
+
+            <div class="aa-nav-actions">
+
+                <a
+                    href="<?= $baseUrl ?>/products"
+                    class="aa-icon-btn"
+                    aria-label="محصولات"
                 >
+                    🔍
+                </a>
 
-                <?php if (count($galleryImages) > 1): ?>
+                <a
+                    href="<?= $baseUrl ?>/cart"
+                    class="aa-icon-btn"
+                    aria-label="سبد خرید"
+                >
+                    🛒
+                </a>
 
-                    <div class="product-thumbnails">
+            </div>
 
-                        <?php foreach (
-                            $galleryImages as $index => $galleryImage
+        </div>
+
+    </div>
+
+</nav>
+
+
+<!-- =========================================================
+     Product
+========================================================= -->
+
+<main class="product-page">
+
+    <div class="aa-container">
+
+
+        <!-- Breadcrumb -->
+
+        <div class="product-breadcrumb">
+
+            <a href="<?= $baseUrl ?>">
+                خانه
+            </a>
+
+            <span>›</span>
+
+            <a href="<?= $baseUrl ?>/products">
+                محصولات
+            </a>
+
+            <?php if (
+                $categoryName !== ''
+            ): ?>
+
+                <span>›</span>
+
+                <span>
+                    <?= htmlspecialchars(
+                        $categoryName,
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>
+                </span>
+
+            <?php endif; ?>
+
+            <span>›</span>
+
+            <span>
+                <?= htmlspecialchars(
+                    $productName,
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>
+            </span>
+
+        </div>
+
+
+        <div class="product-layout">
+
+
+            <!-- =================================================
+                 Gallery
+            ================================================== -->
+
+            <?php if ($galleryImages !== []): ?>
+
+                <section class="product-gallery">
+
+                    <div
+                        class="product-main-image"
+                        id="product-main-image"
+                    >
+
+                        <?php if (
+                            $hasDiscount
                         ): ?>
 
-                            <img
-                                src="<?= htmlspecialchars(
-                                    $galleryImage['url'],
-                                    ENT_QUOTES,
-                                    'UTF-8'
-                                ) ?>"
-                                alt="<?= htmlspecialchars(
-                                    $galleryImage['alt'],
-                                    ENT_QUOTES,
-                                    'UTF-8'
-                                ) ?>"
-                                class="product-thumbnail <?= $index === 0 ? 'active' : '' ?>"
-                                data-full-image="<?= htmlspecialchars(
-                                    $galleryImage['url'],
-                                    ENT_QUOTES,
-                                    'UTF-8'
-                                ) ?>"
-                                data-alt="<?= htmlspecialchars(
-                                    $galleryImage['alt'],
-                                    ENT_QUOTES,
-                                    'UTF-8'
-                                ) ?>"
+                            <span
+                                class="product-discount-badge"
                             >
+                                <?= $discountPercent ?>٪ تخفیف
+                            </span>
 
-                        <?php endforeach; ?>
+                        <?php endif; ?>
+
+                        <img
+                            id="main-product-image"
+                            src="<?= htmlspecialchars(
+                                $galleryImages[0]['url'],
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>"
+                            alt="<?= htmlspecialchars(
+                                $galleryImages[0]['alt'],
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>"
+                        >
+
+                    </div>
+
+
+                    <?php if (count($galleryImages) > 1): ?>
+
+                        <div
+                            class="product-thumbnails"
+                        >
+
+                            <?php foreach (
+                                $galleryImages as $index => $galleryImage
+                            ): ?>
+
+                                <img
+                                    src="<?= htmlspecialchars(
+                                        $galleryImage['url'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>"
+                                    alt="<?= htmlspecialchars(
+                                        $galleryImage['alt'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>"
+                                    class="product-thumbnail <?= $index === 0 ? 'active' : '' ?>"
+                                    data-full-image="<?= htmlspecialchars(
+                                        $galleryImage['url'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>"
+                                    data-alt="<?= htmlspecialchars(
+                                        $galleryImage['alt'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>"
+                                >
+
+                            <?php endforeach; ?>
+
+                        </div>
+
+                    <?php endif; ?>
+
+                </section>
+
+            <?php endif; ?>
+
+
+            <!-- =================================================
+                 Product Info
+            ================================================== -->
+
+            <section class="product-info">
+
+
+                <?php if (
+                    $brandName !== ''
+                ): ?>
+
+                    <div class="product-brand">
+
+                        <?= htmlspecialchars(
+                            $brandName,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) ?>
 
                     </div>
 
                 <?php endif; ?>
 
-            </div>
 
-        <?php endif; ?>
+                <h1 class="product-title">
 
-        <h1>
-            <?= htmlspecialchars(
-                $name,
-                ENT_QUOTES,
-                'UTF-8'
-            ) ?>
-        </h1>
-
-        <?php if ($brandName !== ''): ?>
-
-            <div class="meta">
-                برند:
-                <?= htmlspecialchars(
-                    $brandName,
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) ?>
-            </div>
-
-        <?php endif; ?>
-
-        <?php if ($categoryName !== ''): ?>
-
-            <div class="meta">
-                دسته‌بندی:
-                <?= htmlspecialchars(
-                    $categoryName,
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) ?>
-            </div>
-
-        <?php endif; ?>
-
-        <?php if ($sku !== ''): ?>
-
-            <div class="meta">
-                کد کالا:
-                <?= htmlspecialchars(
-                    $sku,
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) ?>
-            </div>
-
-        <?php endif; ?>
-
-        <div class="description">
-            <?= nl2br(
-                htmlspecialchars(
-                    $description,
-                    ENT_QUOTES,
-                    'UTF-8'
-                )
-            ) ?>
-        </div>
-
-        <div class="price">
-
-            <?php if ($discountPrice !== null): ?>
-
-                <span class="old-price">
-                    <?= number_format($price) ?>
-                    تومان
-                </span>
-
-                <?= number_format($discountPrice) ?>
-                تومان
-
-            <?php else: ?>
-
-                <?= number_format($price) ?>
-                تومان
-
-            <?php endif; ?>
-
-        </div>
-
-        <div class="stock">
-
-            <?php if ($stock > 0): ?>
-
-                <span class="available">
-                    موجود است —
-                    <?= $stock ?>
-                    عدد
-                </span>
-
-            <?php else: ?>
-
-                <span class="unavailable">
-                    ناموجود
-                </span>
-
-            <?php endif; ?>
-
-        </div>
-
-        <?php if (Auth::check()): ?>
-
-            <form
-                method="POST"
-                action="<?= htmlspecialchars(
-                    $baseUrl . '/cart/add',
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) ?>"
-                class="cart-form"
-                id="addToCartForm"
-            >
-
-                <?= Csrf::field() ?>
-
-                <input
-                    type="hidden"
-                    name="product_id"
-                    value="<?= (int) $product['id'] ?>"
-                >
-
-                <input
-                    type="number"
-                    name="quantity"
-                    value="1"
-                    min="1"
-                    max="<?= max(1, $stock) ?>"
-                    <?= $stock <= 0 ? 'disabled' : '' ?>
-                >
-
-                <button
-                    type="submit"
-                    id="addToCartButton"
-                    <?= $stock <= 0 ? 'disabled' : '' ?>
-                >
-                    افزودن به سبد خرید
-                </button>
-
-            </form>
-
-        <?php else: ?>
-
-            <div class="login-message">
-                برای افزودن محصول به سبد خرید ابتدا
-                <a
-                    href="<?= htmlspecialchars(
-                        $baseUrl . '/login',
+                    <?= htmlspecialchars(
+                        $productName,
                         ENT_QUOTES,
                         'UTF-8'
-                    ) ?>"
-                >
-                    وارد حساب کاربری
-                </a>
-                شوید.
-            </div>
+                    ) ?>
 
-        <?php endif; ?>
+                </h1>
 
-        <p>
-            <a
-                href="<?= htmlspecialchars(
-                    $baseUrl . '/products',
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) ?>"
-            >
-                ← بازگشت به محصولات
-            </a>
 
-            &nbsp;&nbsp;
+                <?php if (
+                    $categoryName !== ''
+                ): ?>
 
-            <?php if (Auth::check()): ?>
+                    <div class="product-category">
 
-                <a
-                    href="<?= htmlspecialchars(
-                        $baseUrl . '/cart',
-                        ENT_QUOTES,
-                        'UTF-8'
-                    ) ?>"
-                    class="cart-link"
-                >
-                    مشاهده سبد خرید
-                    <span
-                        class="cart-count"
-                        id="cartCount"
-                    >
-                        0
+                        دسته‌بندی:
+
+                        <strong>
+                            <?= htmlspecialchars(
+                                $categoryName,
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>
+                        </strong>
+
+                    </div>
+
+                <?php endif; ?>
+
+
+                <div class="product-rating">
+
+                    ★★★★★
+
+                    <span>
+                        محصول تخصصی تجهیزات صوتی
                     </span>
-                </a>
+
+                </div>
+
+
+                <!-- Price -->
+
+                <div class="product-price-box">
+
+                    <div class="product-price-label">
+                        قیمت محصول
+                    </div>
+
+                    <div>
+
+                        <span class="product-price">
+
+                            <?= number_format(
+                                $finalPrice,
+                                0,
+                                '.',
+                                ','
+                            ) ?>
+
+                        </span>
+
+                        <span class="product-price-unit">
+                            تومان
+                        </span>
+
+
+                        <?php if (
+                            $hasDiscount
+                        ): ?>
+
+                            <span
+                                class="product-old-price"
+                            >
+                                <?= number_format(
+                                    $price,
+                                    0,
+                                    '.',
+                                    ','
+                                ) ?>
+                            </span>
+
+                        <?php endif; ?>
+
+                    </div>
+
+
+                    <?php if (
+                        $stock > 0
+                    ): ?>
+
+                        <div
+                            class="
+                                product-stock
+                                stock-available
+                            "
+                        >
+                            ✓ موجود در انبار
+
+                            <?php if (
+                                $stock <= 5
+                            ): ?>
+
+                                — فقط
+                                <?= $stock ?>
+                                عدد باقی مانده
+
+                            <?php endif; ?>
+
+                        </div>
+
+                    <?php else: ?>
+
+                        <div
+                            class="
+                                product-stock
+                                stock-unavailable
+                            "
+                        >
+                            ✕ این محصول در حال حاضر
+                            ناموجود است
+                        </div>
+
+                    <?php endif; ?>
+
+                </div>
+
+
+                <!-- Buy -->
+
+                <div class="product-buy-box">
+
+                    <?php if (
+                        $stock > 0
+                    ): ?>
+
+                        <form
+                            method="POST"
+                            action="<?= $baseUrl ?>/cart/add"
+                        >
+
+                            <?php
+                            /*
+                             * If your project already uses a
+                             * CSRF field helper, keep this field.
+                             */
+                            ?>
+
+                            <?php if (
+                                class_exists(
+                                    'App\Core\Csrf'
+                                )
+                            ): ?>
+
+                                <?= App\Core\Csrf::field() ?>
+
+                            <?php endif; ?>
+
+
+                            <input
+                                type="hidden"
+                                name="product_id"
+                                value="<?= (int) (
+                                    $product['id']
+                                    ?? 0
+                                ) ?>"
+                            >
+
+
+                            <label
+                                class="quantity-label"
+                                for="product-quantity"
+                            >
+                                تعداد
+                            </label>
+
+
+                            <div
+                                class="quantity-control"
+                            >
+
+                                <button
+                                    type="button"
+                                    id="quantity-minus"
+                                >
+                                    −
+                                </button>
+
+                                <input
+                                    id="product-quantity"
+                                    type="number"
+                                    name="quantity"
+                                    value="1"
+                                    min="1"
+                                    max="<?= $stock ?>"
+                                >
+
+                                <button
+                                    type="button"
+                                    id="quantity-plus"
+                                >
+                                    +
+                                </button>
+
+                            </div>
+
+
+                            <button
+                                type="submit"
+                                class="
+                                    aa-btn
+                                    aa-btn-primary
+                                    product-buy-button
+                                "
+                            >
+                                🛒 افزودن به سبد خرید
+                            </button>
+
+
+                            <div class="product-buy-note">
+
+                                امکان پرداخت امن و پیگیری سفارش
+                                از طریق حساب کاربری
+
+                            </div>
+
+                        </form>
+
+                    <?php else: ?>
+
+                        <button
+                            type="button"
+                            class="
+                                aa-btn
+                                product-buy-button
+                            "
+                            disabled
+                            style="
+                                background:#e5e7eb;
+                                color:#777;
+                                cursor:not-allowed;
+                            "
+                        >
+                            محصول ناموجود است
+                        </button>
+
+                    <?php endif; ?>
+
+                </div>
+
+
+                <!-- Meta -->
+
+                <div class="product-meta">
+
+                    <div
+                        class="product-meta-item"
+                    >
+
+                        <span>
+                            وضعیت
+                        </span>
+
+                        <strong>
+                            <?= $stock > 0
+                                ? 'موجود'
+                                : 'ناموجود' ?>
+                        </strong>
+
+                    </div>
+
+
+                    <div
+                        class="product-meta-item"
+                    >
+
+                        <span>
+                            برند
+                        </span>
+
+                        <strong>
+                            <?= $brandName !== ''
+                                ? htmlspecialchars(
+                                    $brandName,
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                )
+                                : '---' ?>
+                        </strong>
+
+                    </div>
+
+
+                    <?php if (
+                        $sku !== ''
+                    ): ?>
+
+                        <div
+                            class="product-meta-item"
+                        >
+
+                            <span>
+                                کد محصول
+                            </span>
+
+                            <strong>
+                                <?= htmlspecialchars(
+                                    $sku,
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ) ?>
+                            </strong>
+
+                        </div>
+
+                    <?php endif; ?>
+
+
+                    <div
+                        class="product-meta-item"
+                    >
+
+                        <span>
+                            ارسال
+                        </span>
+
+                        <strong>
+                            ارسال به سراسر کشور
+                        </strong>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </div>
+
+
+        <!-- =====================================================
+             Description
+        ====================================================== -->
+
+        <section
+            class="product-description-section"
+        >
+
+            <h2>
+                درباره این محصول
+            </h2>
+
+
+            <?php if (
+                $description !== ''
+            ): ?>
+
+                <div
+                    class="product-description"
+                >
+                    <?= nl2br(
+                        htmlspecialchars(
+                            $description,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        )
+                    ) ?>
+                </div>
+
+            <?php else: ?>
+
+                <div
+                    class="product-description"
+                >
+                    توضیحاتی برای این محصول ثبت نشده است.
+                </div>
 
             <?php endif; ?>
 
-        </p>
+
+            <div class="product-benefits">
+
+                <div class="product-benefit">
+
+                    <div
+                        class="product-benefit-icon"
+                    >
+                        🚚
+                    </div>
+
+                    <strong>
+                        ارسال سریع
+                    </strong>
+
+                    <span>
+                        ارسال سفارش در سریع‌ترین زمان
+                    </span>
+
+                </div>
+
+
+                <div class="product-benefit">
+
+                    <div
+                        class="product-benefit-icon"
+                    >
+                        🔒
+                    </div>
+
+                    <strong>
+                        خرید امن
+                    </strong>
+
+                    <span>
+                        مدیریت امن اطلاعات سفارش
+                    </span>
+
+                </div>
+
+
+                <div class="product-benefit">
+
+                    <div
+                        class="product-benefit-icon"
+                    >
+                        🎧
+                    </div>
+
+                    <strong>
+                        تخصصی
+                    </strong>
+
+                    <span>
+                        تمرکز روی تجهیزات صوتی
+                    </span>
+
+                </div>
+
+
+                <div class="product-benefit">
+
+                    <div
+                        class="product-benefit-icon"
+                    >
+                        🤖
+                    </div>
+
+                    <strong>
+                        Telegram
+                    </strong>
+
+                    <span>
+                        امکان خرید از ربات تلگرام
+                    </span>
+
+                </div>
+
+            </div>
+
+        </section>
 
     </div>
 
-</div>
+</main>
 
-<!-- Cart Modal -->
 
-<div
-    class="cart-modal"
-    id="cartModal"
-    aria-hidden="true"
->
-    <div class="cart-modal-box">
+<!-- =========================================================
+     Footer
+========================================================= -->
 
-        <div
-            class="cart-modal-icon"
-            id="cartModalIcon"
-        >
-            ✓
+<footer class="aa-footer">
+
+    <div class="aa-container">
+
+        <div class="aa-footer-grid">
+
+            <div>
+
+                <h3>
+                    🎧 آروند Audio
+                </h3>
+
+                <p>
+                    فروشگاه تخصصی تجهیزات صوتی و استودیویی
+                    برای علاقه‌مندان به صدای باکیفیت.
+                </p>
+
+            </div>
+
+
+            <div>
+
+                <h4>
+                    دسترسی سریع
+                </h4>
+
+                <div class="aa-footer-links">
+
+                    <a href="<?= $baseUrl ?>">
+                        خانه
+                    </a>
+
+                    <a href="<?= $baseUrl ?>/products">
+                        محصولات
+                    </a>
+
+                    <a href="<?= $baseUrl ?>/cart">
+                        سبد خرید
+                    </a>
+
+                </div>
+
+            </div>
+
+
+            <div>
+
+                <h4>
+                    حساب کاربری
+                </h4>
+
+                <div class="aa-footer-links">
+
+                    <a href="<?= $baseUrl ?>/login">
+                        ورود
+                    </a>
+
+                    <a href="<?= $baseUrl ?>/register">
+                        ثبت‌نام
+                    </a>
+
+                    <a href="<?= $baseUrl ?>/account">
+                        حساب کاربری
+                    </a>
+
+                </div>
+
+            </div>
+
         </div>
 
-        <div
-            class="cart-modal-title"
-            id="cartModalTitle"
-        >
-            موفق
-        </div>
 
-        <div
-            class="cart-modal-message"
-            id="cartModalMessage"
-        >
-        </div>
+        <div class="aa-footer-bottom">
 
-        <button
-            type="button"
-            class="cart-modal-button"
-            id="cartModalClose"
-        >
-            باشه
-        </button>
+            © 2026 Arvand Audio Store
+            — تمامی حقوق محفوظ است.
+
+        </div>
 
     </div>
-</div>
 
-<?php if (Auth::check()): ?>
+</footer>
+
+
+<!-- =========================================================
+     Product JavaScript
+========================================================= -->
 
 <script>
+
 (function () {
 
-    const form = document.getElementById('addToCartForm');
-    const button = document.getElementById('addToCartButton');
-
-    const modal = document.getElementById('cartModal');
-    const modalBox = modal.querySelector('.cart-modal-box');
-
-    const icon = document.getElementById('cartModalIcon');
-    const title = document.getElementById('cartModalTitle');
-    const message = document.getElementById('cartModalMessage');
-    const closeButton = document.getElementById('cartModalClose');
-
-    const cartCount = document.getElementById('cartCount');
-
-    if (!form) {
-        return;
-    }
-
-    function showModal(type, modalTitle, modalMessage) {
-
-        modal.classList.add('show');
-        modal.classList.remove('success', 'error');
-        modal.classList.add(type);
-
-        icon.textContent =
-            type === 'success' ? '✓' : '×';
-
-        title.textContent = modalTitle;
-        message.textContent = modalMessage;
-
-        modal.setAttribute('aria-hidden', 'false');
-    }
-
-    function hideModal() {
-
-        modal.classList.remove(
-            'show',
-            'success',
-            'error'
+    const quantityInput =
+        document.getElementById(
+            'product-quantity'
         );
 
-        modal.setAttribute(
-            'aria-hidden',
-            'true'
+    const minusButton =
+        document.getElementById(
+            'quantity-minus'
         );
-    }
 
-    closeButton.addEventListener(
-        'click',
-        hideModal
-    );
+    const plusButton =
+        document.getElementById(
+            'quantity-plus'
+        );
 
-    modal.addEventListener(
-        'click',
-        function (event) {
+    if (
+        quantityInput
+        && minusButton
+        && plusButton
+    ) {
 
-            if (event.target === modal) {
-                hideModal();
-            }
+        const maxQuantity =
+            parseInt(
+                quantityInput.max || '1',
+                10
+            );
 
-        }
-    );
-
-    form.addEventListener(
-        'submit',
-        async function (event) {
-
-            event.preventDefault();
-
-            if (button.disabled) {
-                return;
-            }
-
-            const originalText =
-                button.textContent;
-
-            button.disabled = true;
-            button.textContent = 'در حال افزودن...';
-
-            try {
-
-                const response = await fetch(
-                    form.action,
-                    {
-                        method: 'POST',
-                        body: new FormData(form),
-                        headers: {
-                            'X-Requested-With':
-                                'XMLHttpRequest',
-                            'Accept':
-                                'application/json'
-                        }
-                    }
-                );
-
-                let data = null;
-
-                try {
-                    data = await response.json();
-                } catch (jsonError) {
-                    data = null;
-                }
-
-                if (
-                    !data
-                    || typeof data.success === 'undefined'
-                ) {
-                    throw new Error(
-                        'پاسخ نامعتبر از سرور دریافت شد.'
-                    );
-                }
-
-                if (data.success) {
-
-                    showModal(
-                        'success',
-                        'افزودن به سبد خرید',
-                        data.message
-                            || 'محصول با موفقیت به سبد خرید اضافه شد.'
-                    );
-
-                    if (
-                        typeof data.cartQuantity !==
-                        'undefined'
-                    ) {
-                        cartCount.textContent =
-                            data.cartQuantity;
-                    }
-
-                } else {
-
-                    showModal(
-                        'error',
-                        'خطا',
-                        data.message
-                            || 'افزودن محصول به سبد خرید انجام نشد.'
-                    );
-                }
-
-            } catch (error) {
-
-                showModal(
-                    'error',
-                    'خطا',
-                    error.message
-                        || 'ارتباط با سرور برقرار نشد.'
-                );
-
-            } finally {
-
-                button.disabled = false;
-                button.textContent = originalText;
-
-            }
-
-        }
-    );
-
-})();
-</script>
-
-<?php endif; ?>
-
-<!-- Gallery JavaScript -->
-<script>
-document.querySelectorAll('.product-thumbnail')
-    .forEach(function (thumbnail) {
-
-        thumbnail.addEventListener(
+        minusButton.addEventListener(
             'click',
             function () {
 
-                const mainImage =
-                    document.getElementById(
-                        'productMainImage'
+                let value =
+                    parseInt(
+                        quantityInput.value || '1',
+                        10
                     );
 
-                if (!mainImage) {
-                    return;
-                }
+                value = Math.max(
+                    1,
+                    value - 1
+                );
 
-                mainImage.src =
-                    this.dataset.fullImage;
+                quantityInput.value = value;
 
-                mainImage.alt =
-                    this.dataset.alt || '';
-
-                document
-                    .querySelectorAll(
-                        '.product-thumbnail'
-                    )
-                    .forEach(function (item) {
-                        item.classList.remove(
-                            'active'
-                        );
-                    });
-
-                this.classList.add('active');
             }
         );
 
-    });
+
+        plusButton.addEventListener(
+            'click',
+            function () {
+
+                let value =
+                    parseInt(
+                        quantityInput.value || '1',
+                        10
+                    );
+
+                value = Math.min(
+                    maxQuantity,
+                    value + 1
+                );
+
+                quantityInput.value = value;
+
+            }
+        );
+
+
+        quantityInput.addEventListener(
+            'change',
+            function () {
+
+                let value =
+                    parseInt(
+                        quantityInput.value || '1',
+                        10
+                    );
+
+                if (
+                    Number.isNaN(value)
+                ) {
+                    value = 1;
+                }
+
+                value = Math.max(
+                    1,
+                    Math.min(
+                        maxQuantity,
+                        value
+                    )
+                );
+
+                quantityInput.value = value;
+
+            }
+        );
+
+    }
+
+
+    /*
+     * Product gallery
+     */
+
+    const mainImage =
+        document.getElementById(
+            'main-product-image'
+        );
+
+    const thumbnails =
+        document.querySelectorAll(
+            '.product-thumbnail'
+        );
+
+    if (
+        mainImage
+        && thumbnails.length
+    ) {
+
+        thumbnails.forEach(
+            function (thumbnail) {
+
+                thumbnail.addEventListener(
+                    'click',
+                    function () {
+
+                        const image =
+                            thumbnail.dataset.fullImage;
+
+                        const alt =
+                            thumbnail.dataset.alt;
+
+                        if (
+                            image
+                        ) {
+                            mainImage.src =
+                                image;
+                        }
+
+                        if (
+                            alt
+                        ) {
+                            mainImage.alt =
+                                alt;
+                        }
+
+                        /*
+                         * Remove active class from all thumbnails
+                         */
+                        thumbnails.forEach(
+                            function (t) {
+                                t.classList.remove(
+                                    'active'
+                                );
+                            }
+                        );
+
+                        thumbnail.classList.add(
+                            'active'
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+    }
+
+})();
+
 </script>
+
 
 </body>
 

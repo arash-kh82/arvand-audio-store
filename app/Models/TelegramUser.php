@@ -183,6 +183,25 @@ final class TelegramUser extends Model
     }
 
     /**
+     * Unlink Telegram account from website user.
+     */
+    public function unlinkFromUser(
+        int $telegramId
+    ): bool {
+        $stmt = $this->db->prepare(
+            'UPDATE telegram_users
+         SET
+            user_id = NULL,
+            updated_at = CURRENT_TIMESTAMP
+         WHERE telegram_id = :telegram_id'
+        );
+
+        return $stmt->execute([
+            ':telegram_id' => $telegramId,
+        ]);
+    }
+
+    /**
      * Create or update Telegram user from Telegram data.
      */
     public function sync(

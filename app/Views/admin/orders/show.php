@@ -201,6 +201,25 @@ $flashError = \App\Core\Session::flash('error');
 
                 <div class="card-body">
 
+                    <div class="alert alert-danger">
+                        <strong>حذف کامل سفارش:</strong> با حذف سفارش، آیتم‌های سفارش و سوابق پرداخت آن نیز حذف می‌شوند و موجودی کالاهای سفارش به حالت قبل برمی‌گردد.
+                    </div>
+
+                    <form
+                        method="POST"
+                        action="/arvand-audio-store/public/admin/orders/<?= (int) $order['id'] ?>/delete"
+                        class="mb-4"
+                        onsubmit="return confirm('آیا مطمئن هستید؟ این سفارش برای همیشه حذف می‌شود و موجودی کالاها برمی‌گردد.');"
+                    >
+                        <?= $csrfField ?>
+                        <button
+                            type="submit"
+                            class="btn btn-danger"
+                        >
+                            حذف کامل سفارش
+                        </button>
+                    </form>
+
                     <form
                         method="POST"
                         action="/admin/orders/<?= (int) $order['id'] ?>/status"

@@ -2,71 +2,227 @@
 
 declare(strict_types=1);
 
-$products = is_array($products ?? null)
-    ? $products
-    : [];
-
-$categories = is_array($categories ?? null)
-    ? $categories
-    : [];
-
-$brands = is_array($brands ?? null)
-    ? $brands
-    : [];
-
-$search = (string) ($search ?? '');
-
-$selectedCategory = (string) (
-    $selectedCategory ?? ''
-);
-
-$selectedBrand = (string) (
-    $selectedBrand ?? ''
-);
-
-$selectedMinPrice = $selectedMinPrice ?? null;
-
-$selectedMaxPrice = $selectedMaxPrice ?? null;
-
-$selectedSort = (string) (
-    $selectedSort ?? 'newest'
-);
-
-$inStock = (bool) ($inStock ?? false);
+$products = is_array($products ?? null) ? $products : [];
+$categories = is_array($categories ?? null) ? $categories : [];
+$brands = is_array($brands ?? null) ? $brands : [];
 
 $baseUrl = rtrim(
     (string) app_config('base_url', ''),
     '/'
 );
 
-/**
- * تبدیل قیمت به نمایش خوانا
- */
-function productPrice(array $product): string
-{
-    $discountPrice = $product['discount_price'] ?? null;
+$currentSearch = (string) ($_GET['q'] ?? '');
+$currentCategory = (string) ($_GET['category'] ?? '');
+$currentBrand = (string) ($_GET['brand'] ?? '');
+$currentMinPrice = (string) ($_GET['min_price'] ?? '');
+$currentMaxPrice = (string) ($_GET['max_price'] ?? '');
+$currentSort = (string) ($_GET['sort'] ?? '');
 
-    $price = (
-        $discountPrice !== null
-        && $discountPrice !== ''
-        && (float) $discountPrice > 0
-    )
-        ? (float) $discountPrice
-        : (float) ($product['price'] ?? 0);
+$currentInStock = isset($_GET['in_stock'])
+    && (string) $_GET['in_stock'] === '1';
 
-    return number_format(
-        $price,
-        0,
-        '.',
-        ','
-    );
+function productIndexImage(
+    array $product,
+    string $baseUrl
+): ?string {
+    /*
+     * لیست کلیدهای احتمالی برای تصویر اصلی
+     */
+    $imageKeys = [
+        'image',
+        'primary_image',
+        'image_url',
+        'thumbnail',
+        'picture',
+        'img',
+        'photo',
+        'main_image',
+        'featured_image'
+    ];
+
+    $image = '';
+
+    /*
+     * بررسی کلیدهای مختلف برای تصویر اصلی
+     */
+    foreach ($imageKeys as $key) {
+        if (!empty($product[$key])) {
+            $image = trim((string) $product[$key]);
+            if ($image !== '') {
+                break;
+            }
+        }
+    }
+
+    /*
+     * اگر تصویر اصلی خالی بود،
+     * اولین تصویر product_images را بررسی کن.
+     */
+    if ($image === '') {
+        $images = $product['images'] ?? [];
+
+        if (is_array($images)) {
+            foreach ($images as $item) {
+                if (is_array($item)) {
+                    $candidate = trim(
+                        (string) (
+                            $item['image']
+                            ?? $item['path']
+                            ?? $item['url']
+                            ?? $item['src']
+                            ?? $item['file']
+                            ?? ''
+                        )
+                    );
+                } elseif (is_string($item)) {
+                    $candidate = trim((string) $item);
+                } else {
+                    $candidate = '';
+                }
+
+                if ($candidate !== '') {
+                    $image = $candidate;
+                    break;
+                }
+            }
+        }
+    }
+
+    /*
+     * اگر باز هم تصویری پیدا نشد، 
+     * بررسی کن که آیا product['images'] یک آرایه ساده از رشته‌هاست
+     */
+    if ($image === '' && isset($product['images']) && is_array($product['images'])) {
+        foreach ($product['images'] as $item) {
+            if (is_string($item) && trim($item) !== '') {
+                $image = trim($item);
+                break;
+            }
+        }
+    }
+
+    if ($image === '') {
+        return null;
+    }
+
+    /*
+     * URL کامل
+     */
+    if (
+        strpos($image, 'http://') === 0
+        || strpos($image, 'https://') === 0
+    ) {
+        return $image;
+    }
+
+    /*
+     * حذف اسلش اضافی از ابتدا
+     */
+    $image = ltrim($image, '/');
+
+    /*
+     * مسیر نسبی سایت
+     */
+    return $baseUrl . '/' . $image;
 }
+
+function productIndexPrice(array $product): float
+{
+    $discount = $product['discount_price'] ?? null;
+
+    if (
+        $discount !== null
+        && $discount !== ''
+        && (float) $discount > 0
+    ) {
+        return (float) $discount;
+    }
+
+    return (float) ($product['price'] ?? 0);
+}
+
+// فیلتر کردن محصولات بر اساس جستجو
+if ($currentSearch !== '') {
+    $products = array_filter($products, function ($product) use ($currentSearch) {
+        $name = strtolower((string) ($product['name'] ?? $product['title'] ?? ''));
+        $search = strtolower(trim($currentSearch));
+        return strpos($name, $search) !== false;
+    });
+}
+
+// فیلتر بر اساس دسته‌بندی
+if ($currentCategory !== '') {
+    $products = array_filter($products, function ($product) use ($currentCategory) {
+        $categorySlug = strtolower((string) ($product['category_slug'] ?? $product['category_id'] ?? ''));
+        $categoryName = strtolower((string) ($product['category_name'] ?? ''));
+        $search = strtolower(trim($currentCategory));
+        return strpos($categorySlug, $search) !== false || strpos($categoryName, $search) !== false;
+    });
+}
+
+// فیلتر بر اساس برند
+if ($currentBrand !== '') {
+    $products = array_filter($products, function ($product) use ($currentBrand) {
+        $brandSlug = strtolower((string) ($product['brand_slug'] ?? $product['brand_id'] ?? ''));
+        $brandName = strtolower((string) ($product['brand_name'] ?? ''));
+        $search = strtolower(trim($currentBrand));
+        return strpos($brandSlug, $search) !== false || strpos($brandName, $search) !== false;
+    });
+}
+
+// فیلتر بر اساس قیمت
+if ($currentMinPrice !== '') {
+    $minPrice = (float) $currentMinPrice;
+    $products = array_filter($products, function ($product) use ($minPrice) {
+        return productIndexPrice($product) >= $minPrice;
+    });
+}
+
+if ($currentMaxPrice !== '') {
+    $maxPrice = (float) $currentMaxPrice;
+    $products = array_filter($products, function ($product) use ($maxPrice) {
+        return productIndexPrice($product) <= $maxPrice;
+    });
+}
+
+// فیلتر موجودی
+if ($currentInStock) {
+    $products = array_filter($products, function ($product) {
+        return (int) ($product['stock'] ?? 0) > 0;
+    });
+}
+
+// مرتب‌سازی
+if ($currentSort !== '') {
+    usort($products, function ($a, $b) use ($currentSort) {
+        $priceA = productIndexPrice($a);
+        $priceB = productIndexPrice($b);
+
+        switch ($currentSort) {
+            case 'price_asc':
+                return $priceA <=> $priceB;
+            case 'price_desc':
+                return $priceB <=> $priceA;
+            case 'newest':
+                $dateA = strtotime($a['created_at'] ?? $a['date'] ?? '2000-01-01');
+                $dateB = strtotime($b['created_at'] ?? $b['date'] ?? '2000-01-01');
+                return $dateB <=> $dateA;
+            default:
+                return 0;
+        }
+    });
+}
+
+// بازنشانی کلیدهای آرایه بعد از فیلتر کردن
+$products = array_values($products);
 
 ?>
 
 <!DOCTYPE html>
 
-<html lang="fa" dir="rtl">
+<html
+    lang="fa"
+    dir="rtl">
 
 <head>
 
@@ -74,232 +230,499 @@ function productPrice(array $product): string
 
     <meta
         name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+        content="width=device-width, initial-scale=1.0">
 
     <title>
-        <?= htmlspecialchars(
-            $title ?? 'محصولات',
-            ENT_QUOTES,
-            'UTF-8'
-        ) ?>
-        | Arvand Audio Store
+        محصولات | آروند Audio
     </title>
 
     <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css"
         rel="stylesheet"
-    >
+        href="<?= $baseUrl ?>/assets/css/app.css">
 
     <style>
-
-        body {
-            background: #f8f9fa;
+        .products-page {
+            padding-block: 45px 70px;
         }
 
-        .product-card {
-            transition:
-                transform .2s ease,
-                box-shadow .2s ease;
+        .products-layout {
+            display: grid;
+            grid-template-columns: 260px minmax(0, 1fr);
+            gap: 28px;
+            align-items: start;
         }
 
-        .product-card:hover {
-            transform: translateY(-4px);
-            box-shadow:
-                0 .5rem 1rem rgba(0, 0, 0, .12);
-        }
+        .products-sidebar {
+            position: sticky;
+            top: 95px;
 
-        .product-image {
-            height: 220px;
-            object-fit: contain;
             background: #fff;
-            width: 100%;
+            border: 1px solid #e7e9ed;
+            border-radius: 16px;
+            padding: 20px;
         }
 
-        .product-placeholder {
-            height: 220px;
+        .products-sidebar-title {
+            margin: 0 0 18px;
+            font-size: 1.05rem;
+            font-weight: 900;
+        }
+
+        .filter-group {
+            padding-bottom: 18px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid #eceef1;
+        }
+
+        .filter-group:last-child {
+            border-bottom: 0;
+            margin-bottom: 0;
+        }
+
+        .filter-label {
+            display: block;
+            margin-bottom: 8px;
+
+            color: #4b515b;
+            font-size: .82rem;
+            font-weight: 800;
+        }
+
+        .filter-input,
+        .filter-select {
+            width: 100%;
+            min-height: 42px;
+
+            padding: 8px 11px;
+
+            border: 1px solid #dfe2e6;
+            border-radius: 9px;
+
+            background: #fff;
+            color: #222;
+
+            font-family: inherit;
+            font-size: .82rem;
+
+            outline: none;
+        }
+
+        .filter-input:focus,
+        .filter-select:focus {
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, .12);
+        }
+
+        .price-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .check-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            color: #555b65;
+            font-size: .82rem;
+
+            cursor: pointer;
+        }
+
+        .check-row input {
+            accent-color: #f59e0b;
+        }
+
+        .products-main {
+            min-width: 0;
+        }
+
+        .products-heading {
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 22px;
+        }
+
+        .products-heading h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 900;
+        }
+
+        .products-heading p {
+            margin: 4px 0 0;
+            color: #7b818b;
+            font-size: .86rem;
+        }
+
+        .products-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+
+            padding: 13px 15px;
+            margin-bottom: 20px;
+
+            background: #fff;
+            border: 1px solid #e7e9ed;
+            border-radius: 13px;
+        }
+
+        .products-count {
+            color: #737985;
+            font-size: .82rem;
+        }
+
+        .products-search {
+            display: flex;
+            flex: 1;
+            max-width: 480px;
+            gap: 8px;
+        }
+
+        .products-search input {
+            flex: 1;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(3, minmax(0, 1fr));
+            gap: 20px;
+        }
+
+        .product-discount {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+
+            padding: 4px 9px;
+
+            border-radius: 999px;
+
+            background: #ef4444;
+            color: #fff;
+
+            font-size: .7rem;
+            font-weight: 800;
+        }
+
+        .product-image-wrap {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+            background: #f8f9fa;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .aa-product-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .aa-product-placeholder {
+            width: 100%;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #f1f3f5;
-            color: #6c757d;
-            font-size: 4rem;
+            font-size: 3rem;
+            color: #d1d5db;
+            background: #f3f4f6;
         }
 
-        .price {
-            font-size: 1.1rem;
+        .product-old-price {
+            margin-right: 7px;
+
+            color: #9ca1a9;
+            font-size: .75rem;
+
+            text-decoration: line-through;
+        }
+
+        .empty-products {
+            padding: 70px 20px;
+
+            background: #fff;
+
+            border: 1px dashed #d9dce1;
+            border-radius: 16px;
+
+            text-align: center;
+        }
+
+        .empty-products-icon {
+            margin-bottom: 12px;
+            font-size: 3.5rem;
+        }
+
+        .empty-products h2 {
+            margin: 0 0 5px;
+            font-size: 1.15rem;
+        }
+
+        .empty-products p {
+            margin: 0 0 20px;
+            color: #7c828c;
+            font-size: .85rem;
+        }
+
+        .aa-product-card {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e7e9ed;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .aa-product-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        }
+
+        .aa-product-body {
+            padding: 15px;
+        }
+
+        .aa-product-brand {
+            color: #8a9099;
+            font-size: .75rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .aa-product-title {
+            margin: 0 0 8px;
+            font-size: 1rem;
             font-weight: 700;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
 
-        .filter-card {
-            position: sticky;
-            top: 20px;
+        .aa-product-bottom {
+            margin-top: 10px;
         }
 
+        .aa-price {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #1f2937;
+        }
+
+        .aa-price span {
+            font-size: .8rem;
+            font-weight: 400;
+            color: #6b7280;
+            margin-right: 4px;
+        }
+
+        @media (max-width: 992px) {
+
+            .products-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .products-sidebar {
+                position: static;
+            }
+
+            .product-grid {
+                grid-template-columns:
+                    repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 576px) {
+
+            .products-page {
+                padding-block: 28px 50px;
+            }
+
+            .products-heading {
+                align-items: start;
+                flex-direction: column;
+            }
+
+            .products-toolbar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .products-search {
+                max-width: none;
+            }
+
+            .product-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .price-fields {
+                grid-template-columns: 1fr;
+            }
+
+            .product-image-wrap {
+                height: 160px;
+            }
+        }
     </style>
 
 </head>
 
 <body>
 
-<!-- =========================================================
-     Navigation
+    <!-- =========================================================
+     Navbar
 ========================================================= -->
 
-<nav class="navbar navbar-expand-lg bg-dark navbar-dark">
+    <nav class="aa-navbar">
 
-    <div class="container">
+        <div class="aa-container">
 
-        <a
-            class="navbar-brand fw-bold"
-            href="<?= $baseUrl ?>/"
-        >
-            Arvand Audio Store
-        </a>
+            <div class="aa-navbar-inner">
 
-        <button
-            class="navbar-toggler"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#mainNavbar"
-        >
+                <a
+                    href="<?= $baseUrl ?>"
+                    class="aa-brand">
 
-            <span class="navbar-toggler-icon"></span>
+                    <span class="aa-brand-icon">
+                        🎧
+                    </span>
 
-        </button>
+                    <span>
+                        آروند Audio
+                    </span>
 
-        <div
-            class="collapse navbar-collapse"
-            id="mainNavbar"
-        >
+                </a>
 
-            <ul
-                class="navbar-nav me-auto mb-2 mb-lg-0"
-            >
 
-                <li class="nav-item">
+                <nav class="aa-nav">
 
-                    <a
-                        class="nav-link active"
-                        href="<?= $baseUrl ?>/products"
-                    >
-                        محصولات
-                    </a>
-
-                </li>
-
-                <li class="nav-item">
-
-                    <a
-                        class="nav-link"
-                        href="<?= $baseUrl ?>/"
-                    >
+                    <a href="<?= $baseUrl ?>">
                         خانه
                     </a>
 
-                </li>
+                    <a href="<?= $baseUrl ?>/products">
+                        محصولات
+                    </a>
 
-            </ul>
+                    <?php if (
+                        class_exists('App\Core\Auth')
+                        && App\Core\Auth::check()
+                    ): ?>
+
+                        <a href="<?= $baseUrl ?>/account">
+                            حساب کاربری
+                        </a>
+
+                    <?php else: ?>
+
+                        <a href="<?= $baseUrl ?>/login">
+                            ورود
+                        </a>
+
+                    <?php endif; ?>
+
+                </nav>
+
+
+                <div class="aa-nav-actions">
+
+                    <a
+                        href="<?= $baseUrl ?>/products"
+                        class="aa-icon-btn"
+                        aria-label="محصولات">
+                        🔍
+                    </a>
+
+                    <a
+                        href="<?= $baseUrl ?>/cart"
+                        class="aa-icon-btn"
+                        aria-label="سبد خرید">
+                        🛒
+                    </a>
+
+                </div>
+
+            </div>
 
         </div>
 
-    </div>
-
-</nav>
+    </nav>
 
 
-<!-- =========================================================
-     Main
+    <!-- =========================================================
+     Products
 ========================================================= -->
 
-<main class="container py-5">
+    <main class="products-page">
 
-    <div class="row mb-4">
+        <div class="aa-container">
 
-        <div class="col">
+            <div class="products-heading">
 
-            <h1 class="fw-bold">
-                محصولات
-            </h1>
+                <div>
 
-            <p class="text-muted mb-0">
-                محصولات صوتی حرفه‌ای Arvand Audio Store
-            </p>
+                    <h1>
+                        محصولات
+                    </h1>
 
-        </div>
+                    <p>
+                        تجهیزات صوتی حرفه‌ای برای هر نوع استفاده
+                    </p>
 
-    </div>
+                </div>
+
+                <a
+                    href="<?= $baseUrl ?>"
+                    class="aa-btn aa-btn-outline">
+                    ← بازگشت به خانه
+                </a>
+
+            </div>
 
 
-    <div class="row g-4">
+            <div class="products-layout">
 
 
-        <!-- =================================================
-             Filter Sidebar
-        ================================================== -->
+                <!-- =================================================
+                 Filters
+            ================================================== -->
 
-        <aside class="col-lg-3">
+                <aside class="products-sidebar">
 
-            <div
-                class="card border-0 shadow-sm filter-card"
-            >
-
-                <div class="card-body">
-
-                    <h5 class="fw-bold mb-4">
+                    <h2 class="products-sidebar-title">
                         فیلتر محصولات
-                    </h5>
+                    </h2>
 
 
                     <form
                         method="GET"
-                        action="<?= $baseUrl ?>/products"
-                    >
+                        action="<?= $baseUrl ?>/products">
 
+                        <!-- بخش جستجو حذف شد -->
 
-                        <!-- Search -->
-
-                        <div class="mb-3">
+                        <div class="filter-group">
 
                             <label
-                                for="search"
-                                class="form-label"
-                            >
-                                جستجو
-                            </label>
-
-                            <input
-                                type="search"
-                                id="search"
-                                name="search"
-                                class="form-control"
-                                value="<?= htmlspecialchars(
-                                    $search,
-                                    ENT_QUOTES,
-                                    'UTF-8'
-                                ) ?>"
-                                placeholder="نام محصول..."
-                            >
-
-                        </div>
-
-
-                        <!-- Category -->
-
-                        <div class="mb-3">
-
-                            <label
-                                for="category"
-                                class="form-label"
-                            >
+                                class="filter-label"
+                                for="filter-category">
                                 دسته‌بندی
                             </label>
 
                             <select
-                                id="category"
+                                id="filter-category"
                                 name="category"
-                                class="form-select"
-                            >
+                                class="filter-select">
 
                                 <option value="">
                                     همه دسته‌بندی‌ها
@@ -310,24 +733,35 @@ function productPrice(array $product): string
                                     as $category
                                 ): ?>
 
+                                    <?php
+                                    $categoryValue = (string) (
+                                        $category['slug']
+                                        ?? $category['id']
+                                        ?? ''
+                                    );
+
+                                    $categoryName = (string) (
+                                        $category['name']
+                                        ?? $category['title']
+                                        ?? 'دسته‌بندی'
+                                    );
+                                    ?>
+
                                     <option
                                         value="<?= htmlspecialchars(
-                                            $category['slug'],
-                                            ENT_QUOTES,
-                                            'UTF-8'
-                                        ) ?>"
-                                        <?= $selectedCategory
-                                            === $category['slug']
+                                                    $categoryValue,
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>"
+                                        <?= $currentCategory ===
+                                            $categoryValue
                                             ? 'selected'
-                                            : '' ?>
-                                    >
-
+                                            : '' ?>>
                                         <?= htmlspecialchars(
-                                            $category['name'],
+                                            $categoryName,
                                             ENT_QUOTES,
                                             'UTF-8'
                                         ) ?>
-
                                     </option>
 
                                 <?php endforeach; ?>
@@ -337,22 +771,18 @@ function productPrice(array $product): string
                         </div>
 
 
-                        <!-- Brand -->
-
-                        <div class="mb-3">
+                        <div class="filter-group">
 
                             <label
-                                for="brand"
-                                class="form-label"
-                            >
+                                class="filter-label"
+                                for="filter-brand">
                                 برند
                             </label>
 
                             <select
-                                id="brand"
+                                id="filter-brand"
                                 name="brand"
-                                class="form-select"
-                            >
+                                class="filter-select">
 
                                 <option value="">
                                     همه برندها
@@ -363,24 +793,34 @@ function productPrice(array $product): string
                                     as $brand
                                 ): ?>
 
+                                    <?php
+                                    $brandValue = (string) (
+                                        $brand['slug']
+                                        ?? $brand['id']
+                                        ?? ''
+                                    );
+
+                                    $brandName = (string) (
+                                        $brand['name']
+                                        ?? 'برند'
+                                    );
+                                    ?>
+
                                     <option
                                         value="<?= htmlspecialchars(
-                                            $brand['slug'],
-                                            ENT_QUOTES,
-                                            'UTF-8'
-                                        ) ?>"
-                                        <?= $selectedBrand
-                                            === $brand['slug']
+                                                    $brandValue,
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>"
+                                        <?= $currentBrand ===
+                                            $brandValue
                                             ? 'selected'
-                                            : '' ?>
-                                    >
-
+                                            : '' ?>>
                                         <?= htmlspecialchars(
-                                            $brand['name'],
+                                            $brandName,
                                             ENT_QUOTES,
                                             'UTF-8'
                                         ) ?>
-
                                     </option>
 
                                 <?php endforeach; ?>
@@ -390,128 +830,104 @@ function productPrice(array $product): string
                         </div>
 
 
-                        <!-- Minimum Price -->
+                        <div class="filter-group">
 
-                        <div class="mb-3">
-
-                            <label
-                                for="min_price"
-                                class="form-label"
-                            >
-                                حداقل قیمت
+                            <label class="filter-label">
+                                محدوده قیمت
                             </label>
 
-                            <input
-                                type="number"
-                                id="min_price"
-                                name="min_price"
-                                class="form-control"
-                                min="0"
-                                step="1000"
-                                value="<?= $selectedMinPrice !== null
-                                    ? htmlspecialchars(
-                                        (string) $selectedMinPrice,
-                                        ENT_QUOTES,
-                                        'UTF-8'
-                                    )
-                                    : '' ?>"
-                                placeholder="تومان"
-                            >
+                            <div class="price-fields">
+
+                                <input
+                                    type="number"
+                                    name="min_price"
+                                    class="filter-input"
+                                    value="<?= htmlspecialchars(
+                                                $currentMinPrice,
+                                                ENT_QUOTES,
+                                                'UTF-8'
+                                            ) ?>"
+                                    placeholder="از"
+                                    min="0">
+
+                                <input
+                                    type="number"
+                                    name="max_price"
+                                    class="filter-input"
+                                    value="<?= htmlspecialchars(
+                                                $currentMaxPrice,
+                                                ENT_QUOTES,
+                                                'UTF-8'
+                                            ) ?>"
+                                    placeholder="تا"
+                                    min="0">
+
+                            </div>
 
                         </div>
 
 
-                        <!-- Maximum Price -->
+                        <div class="filter-group">
 
-                        <div class="mb-3">
+                            <label class="check-row">
 
-                            <label
-                                for="max_price"
-                                class="form-label"
-                            >
-                                حداکثر قیمت
+                                <input
+                                    type="checkbox"
+                                    name="in_stock"
+                                    value="1"
+                                    <?= $currentInStock
+                                        ? 'checked'
+                                        : '' ?>>
+
+                                فقط محصولات موجود
+
                             </label>
-
-                            <input
-                                type="number"
-                                id="max_price"
-                                name="max_price"
-                                class="form-control"
-                                min="0"
-                                step="1000"
-                                value="<?= $selectedMaxPrice !== null
-                                    ? htmlspecialchars(
-                                        (string) $selectedMaxPrice,
-                                        ENT_QUOTES,
-                                        'UTF-8'
-                                    )
-                                    : '' ?>"
-                                placeholder="تومان"
-                            >
 
                         </div>
 
 
-                        <!-- Sort -->
-
-                        <div class="mb-3">
+                        <div class="filter-group">
 
                             <label
-                                for="sort"
-                                class="form-label"
-                            >
+                                class="filter-label"
+                                for="filter-sort">
                                 مرتب‌سازی
                             </label>
 
                             <select
-                                id="sort"
+                                id="filter-sort"
                                 name="sort"
-                                class="form-select"
-                            >
+                                class="filter-select">
 
-                                <option
-                                    value="newest"
-                                    <?= $selectedSort === 'newest'
-                                        ? 'selected'
-                                        : '' ?>
-                                >
-                                    جدیدترین
+                                <option value="">
+                                    پیش‌فرض
                                 </option>
 
                                 <option
                                     value="price_asc"
-                                    <?= $selectedSort === 'price_asc'
+                                    <?= $currentSort ===
+                                        'price_asc'
                                         ? 'selected'
-                                        : '' ?>
-                                >
+                                        : '' ?>>
                                     ارزان‌ترین
                                 </option>
 
                                 <option
                                     value="price_desc"
-                                    <?= $selectedSort === 'price_desc'
+                                    <?= $currentSort ===
+                                        'price_desc'
                                         ? 'selected'
-                                        : '' ?>
-                                >
+                                        : '' ?>>
                                     گران‌ترین
                                 </option>
 
                                 <option
-                                    value="name_asc"
-                                    <?= $selectedSort === 'name_asc'
+                                    value="newest"
+                                    <?= $currentSort ===
+                                        'newest'
                                         ? 'selected'
-                                        : '' ?>
-                                >
-                                    نام: الف تا ی
-                                </option>
-
-                                <option
-                                    value="name_desc"
-                                    <?= $selectedSort === 'name_desc'
-                                        ? 'selected'
-                                        : '' ?>
-                                >
-                                    نام: ی تا الف
+                                        : '' ?>>
+                                    جدیدترین
                                 </option>
 
                             </select>
@@ -519,298 +935,576 @@ function productPrice(array $product): string
                         </div>
 
 
-                        <!-- In Stock -->
-
-                        <div class="form-check mb-4">
-
-                            <input
-                                type="checkbox"
-                                class="form-check-input"
-                                id="in_stock"
-                                name="in_stock"
-                                value="1"
-                                <?= $inStock
-                                    ? 'checked'
-                                    : '' ?>
-                            >
-
-                            <label
-                                class="form-check-label"
-                                for="in_stock"
-                            >
-                                فقط محصولات موجود
-                            </label>
-
-                        </div>
-
-
-                        <!-- Buttons -->
-
                         <button
                             type="submit"
-                            class="btn btn-dark w-100 mb-2"
-                        >
+                            class="aa-btn aa-btn-primary"
+                            style="width:100%;">
                             اعمال فیلتر
                         </button>
 
+
                         <a
                             href="<?= $baseUrl ?>/products"
-                            class="btn btn-outline-secondary w-100"
-                        >
-                            پاک کردن فیلترها
+                            class="aa-btn aa-btn-outline"
+                            style="
+                            width:100%;
+                            margin-top:8px;
+                        ">
+                            حذف فیلترها
                         </a>
 
                     </form>
 
-                </div>
-
-            </div>
-
-        </aside>
+                </aside>
 
 
-        <!-- =================================================
-             Products
-        ================================================== -->
+                <!-- =================================================
+                 Product List
+            ================================================== -->
 
-        <section class="col-lg-9">
-
-
-            <!-- Result Header -->
-
-            <div
-                class="d-flex justify-content-between
-                       align-items-center mb-3"
-            >
-
-                <div>
-
-                    <?php if ($search !== ''): ?>
-
-                        <span class="text-muted">
-                            نتایج جستجو برای:
-                        </span>
-
-                        <strong>
-                            <?= htmlspecialchars(
-                                $search,
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ) ?>
-                        </strong>
-
-                    <?php else: ?>
-
-                        <span class="text-muted">
-                            لیست محصولات
-                        </span>
-
-                    <?php endif; ?>
-
-                </div>
-
-                <span class="badge text-bg-secondary">
-                    <?= count($products) ?>
-                    محصول
-                </span>
-
-            </div>
+                <section class="products-main">
 
 
-            <!-- Products -->
+                    <div class="products-toolbar">
 
-            <?php if ($products === []): ?>
+                        <div class="products-count">
 
-                <div class="alert alert-warning">
+                            <?= count($products) ?>
 
-                    <h5 class="alert-heading">
-                        محصولی پیدا نشد
-                    </h5>
+                            محصول نمایش داده می‌شود
 
-                    <p class="mb-0">
-                        با تغییر فیلترها دوباره تلاش کنید.
-                    </p>
-
-                </div>
-
-            <?php else: ?>
-
-                <div class="row g-4">
-
-                    <?php foreach (
-                        $products
-                        as $product
-                    ): ?>
-
-                        <div class="col-md-6 col-xl-4">
-
-                            <div
-                                class="card
-                                       product-card
-                                       h-100
-                                       border-0
-                                       shadow-sm"
-                            >
-
-                                <?php
-                                $productImage = trim((string) ($product['image'] ?? ''));
-
-                                if ($productImage !== '') {
-                                    $productImageUrl = $baseUrl . '/' . ltrim($productImage, '/');
-                                }
-                                ?>
-
-                                <?php if ($productImage !== ''): ?>
-
-                                    <img
-                                        src="<?= htmlspecialchars(
-                                            $productImageUrl,
-                                            ENT_QUOTES,
-                                            'UTF-8'
-                                        ) ?>"
-                                        class="card-img-top product-image"
-                                        alt="<?= htmlspecialchars(
-                                            $product['name'],
-                                            ENT_QUOTES,
-                                            'UTF-8'
-                                        ) ?>"
-                                    >
-
-                                <?php else: ?>
-
-                                    <div class="product-placeholder">
-                                        🎧
-                                    </div>
-
-                                <?php endif; ?>
+                        </div>
 
 
-                                <div
-                                    class="card-body
-                                           d-flex
-                                           flex-column"
-                                >
+                        <form
+                            method="GET"
+                            action="<?= $baseUrl ?>/products"
+                            class="products-search">
 
-                                    <?php if (
-                                        !empty(
-                                            $product['brand_name']
-                                        )
-                                    ): ?>
+                            <?php if (
+                                $currentCategory !== ''
+                            ): ?>
 
-                                        <small
-                                            class="text-muted mb-1"
-                                        >
-                                            <?= htmlspecialchars(
-                                                $product['brand_name'],
+                                <input
+                                    type="hidden"
+                                    name="category"
+                                    value="<?= htmlspecialchars(
+                                                $currentCategory,
                                                 ENT_QUOTES,
                                                 'UTF-8'
-                                            ) ?>
-                                        </small>
+                                            ) ?>">
 
-                                    <?php endif; ?>
+                            <?php endif; ?>
 
 
-                                    <h5
-                                        class="card-title"
-                                    >
-                                        <?= htmlspecialchars(
-                                            $product['name'],
+                            <?php if (
+                                $currentBrand !== ''
+                            ): ?>
+
+                                <input
+                                    type="hidden"
+                                    name="brand"
+                                    value="<?= htmlspecialchars(
+                                                $currentBrand,
+                                                ENT_QUOTES,
+                                                'UTF-8'
+                                            ) ?>">
+
+                            <?php endif; ?>
+
+                            <?php if (
+                                $currentMinPrice !== ''
+                            ): ?>
+
+                                <input
+                                    type="hidden"
+                                    name="min_price"
+                                    value="<?= htmlspecialchars(
+                                                $currentMinPrice,
+                                                ENT_QUOTES,
+                                                'UTF-8'
+                                            ) ?>">
+
+                            <?php endif; ?>
+
+                            <?php if (
+                                $currentMaxPrice !== ''
+                            ): ?>
+
+                                <input
+                                    type="hidden"
+                                    name="max_price"
+                                    value="<?= htmlspecialchars(
+                                                $currentMaxPrice,
+                                                ENT_QUOTES,
+                                                'UTF-8'
+                                            ) ?>">
+
+                            <?php endif; ?>
+
+                            <?php if (
+                                $currentInStock
+                            ): ?>
+
+                                <input
+                                    type="hidden"
+                                    name="in_stock"
+                                    value="1">
+
+                            <?php endif; ?>
+
+                            <?php if (
+                                $currentSort !== ''
+                            ): ?>
+
+                                <input
+                                    type="hidden"
+                                    name="sort"
+                                    value="<?= htmlspecialchars(
+                                                $currentSort,
+                                                ENT_QUOTES,
+                                                'UTF-8'
+                                            ) ?>">
+
+                            <?php endif; ?>
+
+
+                            <input
+                                type="search"
+                                name="q"
+                                class="filter-input"
+                                value="<?= htmlspecialchars(
+                                            $currentSearch,
                                             ENT_QUOTES,
                                             'UTF-8'
-                                        ) ?>
-                                    </h5>
+                                        ) ?>"
+                                placeholder="جستجوی سریع محصول...">
+
+                            <button
+                                type="submit"
+                                class="aa-btn aa-btn-dark">
+                                جستجو
+                            </button>
+
+                        </form>
+
+                    </div>
 
 
-                                    <p
-                                        class="card-text
-                                               text-muted
-                                               flex-grow-1"
-                                    >
-                                        <?= htmlspecialchars(
-                                            (string) (
-                                                $product['description']
-                                                ?? ''
-                                            ),
-                                            ENT_QUOTES,
-                                            'UTF-8'
-                                        ) ?>
-                                    </p>
+                    <?php if ($products !== []): ?>
 
+                        <div class="product-grid">
+
+                            <?php foreach (
+                                $products
+                                as $product
+                            ): ?>
+
+                                <?php
+
+                                $productName = (string) (
+                                    $product['name']
+                                    ?? $product['title']
+                                    ?? 'محصول'
+                                );
+
+                                $productSlug = (string) (
+                                    $product['slug']
+                                    ?? ''
+                                );
+
+                                $image = productIndexImage(
+                                    $product,
+                                    $baseUrl
+                                );
+
+                                $price = productIndexPrice(
+                                    $product
+                                );
+
+                                $originalPrice = (float) (
+                                    $product['price']
+                                    ?? 0
+                                );
+
+                                $stock = (int) (
+                                    $product['stock']
+                                    ?? 0
+                                );
+
+                                $brandName = (string) (
+                                    $product['brand_name']
+                                    ?? ''
+                                );
+
+                                $categoryName = (string) (
+                                    $product['category_name']
+                                    ?? ''
+                                );
+
+                                $hasDiscount =
+                                    $originalPrice > 0
+                                    && $price > 0
+                                    && $price < $originalPrice;
+
+                                $discountPercent =
+                                    $hasDiscount
+                                    ? (int) round(
+                                        (
+                                            1
+                                            - (
+                                                $price
+                                                / $originalPrice
+                                            )
+                                        )
+                                            * 100
+                                    )
+                                    : 0;
+
+                                ?>
+
+                                <article
+                                    class="aa-product-card">
 
                                     <div
-                                        class="d-flex
-                                               justify-content-between
-                                               align-items-center"
-                                    >
-
-                                        <span class="price">
-
-                                            <?= productPrice(
-                                                $product
-                                            ) ?>
-
-                                            تومان
-
-                                        </span>
-
+                                        class="product-image-wrap">
 
                                         <?php if (
-                                            (int) (
-                                                $product['stock']
-                                                ?? 0
-                                            ) > 0
+                                            $hasDiscount
                                         ): ?>
 
                                             <span
-                                                class="badge text-bg-success"
-                                            >
-                                                موجود
+                                                class="product-discount">
+                                                <?= $discountPercent ?>٪ تخفیف
                                             </span>
+
+                                        <?php endif; ?>
+
+
+                                        <?php if (
+                                            $image !== null
+                                        ): ?>
+
+                                            <img
+                                                src="<?= htmlspecialchars(
+                                                            $image,
+                                                            ENT_QUOTES,
+                                                            'UTF-8'
+                                                        ) ?>"
+                                                alt="<?= htmlspecialchars(
+                                                            $productName,
+                                                            ENT_QUOTES,
+                                                            'UTF-8'
+                                                        ) ?>"
+                                                class="aa-product-image"
+                                                loading="lazy"
+                                                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+
+                                            <div
+                                                class="aa-product-placeholder"
+                                                style="display:none;">
+                                                🎧
+                                            </div>
 
                                         <?php else: ?>
 
-                                            <span
-                                                class="badge text-bg-danger"
-                                            >
-                                                ناموجود
-                                            </span>
+                                            <div
+                                                class="aa-product-placeholder">
+                                                🎧
+                                            </div>
 
                                         <?php endif; ?>
 
                                     </div>
 
 
-                                    <a
-                                        href="<?= $baseUrl ?>/products/<?= urlencode(
-                                            $product['slug']
-                                        ) ?>"
-                                        class="btn btn-dark mt-3"
-                                    >
-                                        مشاهده محصول
-                                    </a>
+                                    <div class="aa-product-body">
 
-                                </div>
 
-                            </div>
+                                        <?php if (
+                                            $brandName !== ''
+                                        ): ?>
+
+                                            <div
+                                                class="aa-product-brand">
+                                                <?= htmlspecialchars(
+                                                    $brandName,
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>
+                                            </div>
+
+                                        <?php endif; ?>
+
+
+                                        <h2
+                                            class="aa-product-title">
+                                            <?= htmlspecialchars(
+                                                $productName,
+                                                ENT_QUOTES,
+                                                'UTF-8'
+                                            ) ?>
+                                        </h2>
+
+
+                                        <?php if (
+                                            $categoryName !== ''
+                                        ): ?>
+
+                                            <p
+                                                style="
+                                                margin:
+                                                    0 0 8px;
+                                                color:
+                                                    #8a9099;
+                                                font-size:
+                                                    .75rem;
+                                            ">
+                                                <?= htmlspecialchars(
+                                                    $categoryName,
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>
+                                            </p>
+
+                                        <?php endif; ?>
+
+
+                                        <div
+                                            class="aa-product-bottom">
+
+                                            <div class="aa-price">
+
+                                                <?= number_format(
+                                                    $price,
+                                                    0,
+                                                    '.',
+                                                    ','
+                                                ) ?>
+
+                                                <span>
+                                                    تومان
+                                                </span>
+
+
+                                                <?php if (
+                                                    $hasDiscount
+                                                ): ?>
+
+                                                    <span
+                                                        class="product-old-price">
+                                                        <?= number_format(
+                                                            $originalPrice,
+                                                            0,
+                                                            '.',
+                                                            ','
+                                                        ) ?>
+                                                    </span>
+
+                                                <?php endif; ?>
+
+                                            </div>
+
+                                        </div>
+
+
+                                        <?php if (
+                                            $stock > 0
+                                        ): ?>
+
+                                            <div
+                                                style="
+                                                margin-top:
+                                                    8px;
+                                                color:
+                                                    #16a34a;
+                                                font-size:
+                                                    .76rem;
+                                                font-weight:
+                                                    700;
+                                            ">
+                                                ✓ موجود در انبار
+                                            </div>
+
+                                        <?php else: ?>
+
+                                            <div
+                                                style="
+                                                margin-top:
+                                                    8px;
+                                                color:
+                                                    #dc2626;
+                                                font-size:
+                                                    .76rem;
+                                                font-weight:
+                                                    700;
+                                            ">
+                                                ✕ ناموجود
+                                            </div>
+
+                                        <?php endif; ?>
+
+
+                                        <?php if (
+                                            $productSlug !== ''
+                                        ): ?>
+
+                                            <a
+                                                href="<?= $baseUrl ?>/products/<?= urlencode(
+                                                                                    $productSlug
+                                                                                ) ?>"
+                                                class="aa-btn aa-btn-dark"
+                                                style="
+                                                width:100%;
+                                                margin-top:15px;
+                                            ">
+                                                مشاهده محصول
+                                            </a>
+
+                                        <?php else: ?>
+
+                                            <a
+                                                href="<?= $baseUrl ?>/products"
+                                                class="aa-btn aa-btn-dark"
+                                                style="
+                                                width:100%;
+                                                margin-top:15px;
+                                            ">
+                                                مشاهده محصولات
+                                            </a>
+
+                                        <?php endif; ?>
+
+                                    </div>
+
+                                </article>
+
+                            <?php endforeach; ?>
 
                         </div>
 
-                    <?php endforeach; ?>
+                    <?php else: ?>
+
+                        <div class="empty-products">
+
+                            <div class="empty-products-icon">
+                                🔍
+                            </div>
+
+                            <h2>
+                                محصولی پیدا نشد
+                            </h2>
+
+                            <p>
+                                با تغییر فیلترها یا عبارت جستجو
+                                دوباره امتحان کنید.
+                            </p>
+
+                            <a
+                                href="<?= $baseUrl ?>/products"
+                                class="aa-btn aa-btn-primary">
+                                نمایش همه محصولات
+                            </a>
+
+                        </div>
+
+                    <?php endif; ?>
+
+                </section>
+
+            </div>
+
+        </div>
+
+    </main>
+
+
+    <!-- =========================================================
+     Footer
+========================================================= -->
+
+    <footer class="aa-footer">
+
+        <div class="aa-container">
+
+            <div class="aa-footer-grid">
+
+                <div>
+
+                    <h3>
+                        🎧 آروند Audio
+                    </h3>
+
+                    <p>
+                        فروشگاه تخصصی تجهیزات صوتی و استودیویی
+                        برای علاقه‌مندان به صدای باکیفیت.
+                    </p>
 
                 </div>
 
-            <?php endif; ?>
 
-        </section>
+                <div>
 
-    </div>
+                    <h4>
+                        دسترسی سریع
+                    </h4>
 
-</main>
+                    <div class="aa-footer-links">
+
+                        <a href="<?= $baseUrl ?>">
+                            خانه
+                        </a>
+
+                        <a href="<?= $baseUrl ?>/products">
+                            محصولات
+                        </a>
+
+                        <a href="<?= $baseUrl ?>/cart">
+                            سبد خرید
+                        </a>
+
+                    </div>
+
+                </div>
 
 
-<script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-></script>
+                <div>
+
+                    <h4>
+                        حساب کاربری
+                    </h4>
+
+                    <div class="aa-footer-links">
+
+                        <a href="<?= $baseUrl ?>/login">
+                            ورود
+                        </a>
+
+                        <a href="<?= $baseUrl ?>/register">
+                            ثبت‌نام
+                        </a>
+
+                        <a href="<?= $baseUrl ?>/account">
+                            حساب کاربری
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="aa-footer-bottom">
+
+                © 2026 Arvand Audio Store
+                — تمامی حقوق محفوظ است.
+
+            </div>
+
+        </div>
+
+    </footer>
 
 </body>
 

@@ -292,6 +292,206 @@ final class Order extends Model
     }
 
     /**
+     * لغو و حذف کامل سفارش توسط خود کاربر.
+     *
+     * فقط سفارش‌هایی که هنوز پرداخت موفق نشده‌اند قابل حذف هستند.
+     * قبل از حذف، موجودی تمام محصولات سفارش به مقدار قبل برگردانده می‌شود.
+     */
+    public function cancelForUser(int $orderId, int $userId): bool
+    {
+        if ($orderId <= 0 || $userId <= 0) {
+            return false;
+        }
+
+        $this->db->beginTransaction();
+
+        try {
+            $stmt = $this->db->prepare(
+                'SELECT id, status, payment_status
+                 FROM orders
+                 WHERE id = :id
+                   AND user_id = :user_id
+                 LIMIT 1
+                 FOR UPDATE'
+            );
+
+            $stmt->execute([
+                ':id' => $orderId,
+                ':user_id' => $userId,
+            ]);
+
+            $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($order === false) {
+                throw new RuntimeException(
+                    'سفارش مورد نظر پیدا نشد.'
+                );
+            }
+
+            if (
+                ($order['payment_status'] ?? 'pending') === 'success'
+            ) {
+                throw new RuntimeException(
+                    'سفارش پرداخت‌شده را نمی‌توان از حساب کاربری حذف کرد.'
+                );
+            }
+
+            if (
+                ($order['status'] ?? 'pending') !== 'pending'
+            ) {
+                throw new RuntimeException(
+                    'این سفارش در وضعیت فعلی قابل لغو نیست.'
+                );
+            }
+
+            $items = $this->getItemsForUpdate($orderId);
+
+            $this->restoreStock($items);
+
+            $delete = $this->db->prepare(
+                'DELETE FROM orders
+                 WHERE id = :id
+                   AND user_id = :user_id
+                 LIMIT 1'
+            );
+
+            $delete->execute([
+                ':id' => $orderId,
+                ':user_id' => $userId,
+            ]);
+
+            if ($delete->rowCount() !== 1) {
+                throw new RuntimeException(
+                    'حذف سفارش انجام نشد.'
+                );
+            }
+
+            $this->db->commit();
+
+            return true;
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * حذف کامل سفارش توسط مدیر.
+     * موجودی محصولات سفارش قبل از حذف برگردانده می‌شود.
+     */
+    public function deleteByAdmin(int $orderId): bool
+    {
+        if ($orderId <= 0) {
+            return false;
+        }
+
+        $this->db->beginTransaction();
+
+        try {
+            $stmt = $this->db->prepare(
+                'SELECT id
+                 FROM orders
+                 WHERE id = :id
+                 LIMIT 1
+                 FOR UPDATE'
+            );
+
+            $stmt->execute([
+                ':id' => $orderId,
+            ]);
+
+            if ($stmt->fetch(PDO::FETCH_ASSOC) === false) {
+                throw new RuntimeException(
+                    'سفارش مورد نظر پیدا نشد.'
+                );
+            }
+
+            $items = $this->getItemsForUpdate($orderId);
+
+            $this->restoreStock($items);
+
+            $delete = $this->db->prepare(
+                'DELETE FROM orders
+                 WHERE id = :id
+                 LIMIT 1'
+            );
+
+            $delete->execute([
+                ':id' => $orderId,
+            ]);
+
+            if ($delete->rowCount() !== 1) {
+                throw new RuntimeException(
+                    'حذف سفارش انجام نشد.'
+                );
+            }
+
+            $this->db->commit();
+
+            return true;
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * دریافت آیتم‌های سفارش با قفل برای عملیات حذف/برگرداندن موجودی.
+     */
+    private function getItemsForUpdate(int $orderId): array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT
+                id,
+                product_id,
+                quantity
+             FROM order_items
+             WHERE order_id = :order_id
+             ORDER BY id ASC
+             FOR UPDATE'
+        );
+
+        $stmt->execute([
+            ':order_id' => $orderId,
+        ]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * برگرداندن موجودی تمام محصولات سفارش.
+     */
+    private function restoreStock(array $items): void
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE products
+             SET stock = stock + :quantity,
+                 updated_at = NOW()
+             WHERE id = :product_id'
+        );
+
+        foreach ($items as $item) {
+            $productId = (int) ($item['product_id'] ?? 0);
+            $quantity = (int) ($item['quantity'] ?? 0);
+
+            if ($productId <= 0 || $quantity <= 0) {
+                continue;
+            }
+
+            $stmt->execute([
+                ':quantity' => $quantity,
+                ':product_id' => $productId,
+            ]);
+        }
+    }
+
+    /**
      * تولید شماره سفارش یکتا
      */
     private function generateOrderNumber(): string

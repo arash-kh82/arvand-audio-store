@@ -47,7 +47,7 @@ final class ProductController extends Controller
         */
 
         $search = trim(
-            (string) ($_GET['search'] ?? '')
+            (string) ($_GET['search'] ?? $_GET['q'] ?? '')
         );
 
         /*
@@ -133,6 +133,7 @@ final class ProductController extends Controller
         */
 
         $allowedSorts = [
+            '',
             'newest',
             'price_asc',
             'price_desc',
@@ -141,7 +142,7 @@ final class ProductController extends Controller
         ];
 
         $sort = (string) (
-            $_GET['sort'] ?? 'newest'
+            $_GET['sort'] ?? ''
         );
 
         if (!in_array(
@@ -149,7 +150,7 @@ final class ProductController extends Controller
             $allowedSorts,
             true
         )) {
-            $sort = 'newest';
+            $sort = '';
         }
 
         /*
@@ -173,6 +174,7 @@ final class ProductController extends Controller
 
         $filters = [
             'search' => $search,
+
             'category_id' => $category !== null
                 ? (int) $category['id']
                 : 0,
@@ -183,7 +185,9 @@ final class ProductController extends Controller
 
             'min_price' => $minPrice,
             'max_price' => $maxPrice,
+
             'sort' => $sort,
+
             'in_stock' => $inStock,
         ];
 
@@ -200,20 +204,76 @@ final class ProductController extends Controller
 
         /*
         |--------------------------------------------------------------------------
+        | دریافت تصاویر محصولات
+        |--------------------------------------------------------------------------
+        |
+        | نکته مهم:
+        | تصاویر اصلی از جدول product_images گرفته می‌شوند.
+        |
+        */
+
+        foreach ($products as &$product) {
+
+            $productId = (int) (
+                $product['id'] ?? 0
+            );
+
+            $product['images'] = [];
+
+            if ($productId > 0) {
+
+                $product['images'] =
+                    $this->productImages->getByProductId(
+                        $productId
+                    );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | تنظیم تصویر اصلی برای نمایش در لیست محصولات
+            |--------------------------------------------------------------------------
+            |
+            | اگر محصول تصویر اصلی داشت، از همان استفاده می‌شود.
+            | در غیر این صورت، اولین تصویر از گالری به عنوان تصویر اصلی تنظیم می‌شود.
+            |
+            */
+
+            // اگر تصویر اصلی وجود نداشت و گالری تصاویر پر بود
+            if (
+                empty($product['image'])
+                && !empty($product['images'])
+                && is_array($product['images'])
+            ) {
+                // اولین تصویر گالری را به عنوان تصویر اصلی انتخاب کن
+                $firstImage = $product['images'][0] ?? null;
+
+                if (is_array($firstImage)) {
+                    $product['image'] = $firstImage['image'] ?? '';
+                } elseif (is_string($firstImage)) {
+                    $product['image'] = $firstImage;
+                }
+            }
+        }
+
+        unset($product);
+
+        /*
+        |--------------------------------------------------------------------------
         | View
         |--------------------------------------------------------------------------
         */
 
         $this->view('products/index', [
+
             'title' => 'محصولات',
 
             'products' => $products,
 
             'categories' =>
-            $this->categories->getActiveCategories(),
+                $this->categories->getActiveCategories(),
 
             'brands' =>
-            $this->brands->getActiveBrands(),
+                $this->brands->getActiveBrands(),
 
             'search' => $search,
 

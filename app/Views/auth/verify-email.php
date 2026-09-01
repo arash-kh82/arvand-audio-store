@@ -4,261 +4,337 @@ declare(strict_types=1);
 
 use App\Core\Session;
 
-$e = static fn($value): string =>
-    htmlspecialchars(
-        (string)$value,
-        ENT_QUOTES,
-        'UTF-8'
-    );
+$e = static fn($value): string => htmlspecialchars(
+    (string) $value,
+    ENT_QUOTES,
+    'UTF-8'
+);
 
 $error = Session::flash('error');
-
 $success = Session::flash('success');
-
 ?>
 
 <!doctype html>
 <html lang="fa" dir="rtl">
 
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= $e($title ?? 'تأیید ایمیل | فروشگاه آروَند آدیو') ?></title>
 
-    <title>
-        <?= $e($title ?? 'تایید ایمیل') ?>
-    </title>
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css"
+        rel="stylesheet">
 
     <style>
-        /* ====== RESET & BASE ====== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
-            font-family: Tahoma, Arial, sans-serif;
-            background: #f5f5f5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             min-height: 100vh;
-            padding: 20px;
-            color: #222;
+            background:
+                radial-gradient(circle at top right,
+                    rgba(25, 135, 84, 0.10),
+                    transparent 35%),
+                linear-gradient(135deg, #f8f9fa, #eef2f7);
         }
 
-        .container {
-            background: #fff;
-            max-width: 500px;
-            width: 100%;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        .verify-wrapper {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 40px 0;
         }
 
-        /* ====== TYPOGRAPHY ====== */
-        h1 {
-            font-size: 24px;
-            margin-bottom: 20px;
+        .verify-card {
+            border: 0;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.08);
+        }
+
+        .verify-header {
+            background: linear-gradient(135deg,
+                    #198754,
+                    #157347);
+            color: #fff;
+            padding: 30px;
             text-align: center;
-            color: #1a1a1a;
         }
 
-        /* ====== MESSAGES ====== */
-        .message {
-            padding: 12px 16px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 14px;
+        .verify-icon {
+            width: 68px;
+            height: 68px;
+            margin: 0 auto 15px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
         }
 
-        .message-success {
-            background: #dff5e3;
-            color: #176b2c;
-            border-right: 4px solid #176b2c;
+        .verify-body {
+            padding: 30px;
         }
 
-        .message-error {
-            background: #fde2e2;
-            color: #9b1c1c;
-            border-right: 4px solid #9b1c1c;
-        }
-
-        /* ====== FORM ====== */
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            font-weight: bold;
+        .form-label {
+            font-weight: 600;
             margin-bottom: 8px;
-            font-size: 14px;
-            color: #333;
         }
 
-        input[type="text"] {
-            width: 100%;
-            padding: 12px 14px;
-            border: 2px solid #ddd;
-            border-radius: 6px;
-            font-size: 16px;
-            transition: border-color 0.2s;
+        .code-input {
+            min-height: 58px;
+            border-radius: 14px;
             text-align: center;
-            letter-spacing: 4px;
-            font-weight: bold;
             direction: ltr;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 8px;
         }
 
-        input[type="text"]:focus {
-            outline: none;
+        .code-input:focus {
             border-color: #198754;
-            box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.1);
+            box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.12);
         }
 
-        /* ====== BUTTONS ====== */
-        .btn {
-            display: inline-block;
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
+        .code-help {
+            margin-top: 8px;
+            color: #6c757d;
+            font-size: 0.85rem;
             text-align: center;
         }
 
-        .btn:hover {
-            transform: translateY(-1px);
+        .btn {
+            min-height: 48px;
+            border-radius: 12px;
+            font-weight: 600;
         }
 
-        .btn:active {
-            transform: translateY(0);
-        }
-
-        .btn-primary {
-            background: #198754;
-            color: #fff;
-        }
-
-        .btn-primary:hover {
-            background: #157347;
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: #fff;
-        }
-
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-
-        /* ====== DIVIDER ====== */
         .divider {
-            margin: 30px 0;
-            border: none;
-            border-top: 1px solid #e5e5e5;
             position: relative;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 28px 0;
+            color: #6c757d;
+            font-size: 0.85rem;
         }
 
+        .divider::before,
         .divider::after {
-            content: 'یا';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #fff;
-            padding: 0 15px;
-            color: #999;
-            font-size: 13px;
+            content: "";
+            height: 1px;
+            background: #dee2e6;
+            flex: 1;
         }
 
-        /* ====== RESEND FORM ====== */
-        .resend-form .btn {
-            width: 100%;
+        .info-box {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 22px;
+            color: #495057;
+            font-size: 0.9rem;
+            line-height: 1.8;
         }
 
-        /* ====== RESPONSIVE ====== */
-        @media (max-width: 480px) {
-            .container {
-                padding: 25px;
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #6c757d;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .back-link:hover {
+            color: #198754;
+        }
+
+        @media (max-width: 576px) {
+            .verify-wrapper {
+                padding: 20px 0;
             }
 
-            h1 {
-                font-size: 20px;
+            .verify-header {
+                padding: 25px 20px;
             }
 
-            input[type="text"] {
-                font-size: 18px;
-                padding: 10px;
+            .verify-body {
+                padding: 22px;
+            }
+
+            .code-input {
+                font-size: 21px;
+                letter-spacing: 6px;
             }
         }
     </style>
-
 </head>
 
 <body>
 
-    <div class="container">
+    <div class="container verify-wrapper">
 
-        <h1>تایید ایمیل</h1>
+        <div class="row justify-content-center w-100">
 
-        <!-- ====== MESSAGES ====== -->
-        <?php if ($success): ?>
-            <div class="message message-success">
-                <?= $e($success) ?>
+            <div class="col-12 col-sm-10 col-md-8 col-lg-5">
+
+                <div class="card verify-card">
+
+                    <!-- Header -->
+                    <div class="verify-header">
+
+                        <div class="verify-icon">
+                            ✉
+                        </div>
+
+                        <h1 class="h4 fw-bold mb-2">
+                            تأیید ایمیل
+                        </h1>
+
+                        <p class="mb-0 opacity-75">
+                            کد ارسال‌شده به ایمیل خود را وارد کنید
+                        </p>
+
+                    </div>
+
+                    <!-- Body -->
+                    <div class="verify-body">
+
+                        <?php if ($success): ?>
+
+                            <div class="alert alert-success rounded-3">
+                                <?= $e($success) ?>
+                            </div>
+
+                        <?php endif; ?>
+
+
+                        <?php if ($error): ?>
+
+                            <div class="alert alert-danger rounded-3">
+                                <?= $e($error) ?>
+                            </div>
+
+                        <?php endif; ?>
+
+
+                        <div class="info-box">
+                            کد تأیید ارسال‌شده به ایمیل شما را در کادر زیر وارد کنید.
+                            کد تأیید معمولاً یک کد ۶ رقمی است.
+                        </div>
+
+
+                        <!-- Verify Form -->
+                        <form
+                            method="post"
+                            action="/arvand-audio-store/public/verify-email"
+                            autocomplete="off">
+
+                            <?= $csrfField ?? '' ?>
+
+                            <div class="mb-4">
+
+                                <label
+                                    for="code"
+                                    class="form-label">
+                                    کد تأیید
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="code"
+                                    name="code"
+                                    class="form-control code-input"
+                                    maxlength="6"
+                                    minlength="6"
+                                    inputmode="numeric"
+                                    pattern="[0-9]{6}"
+                                    placeholder="۱۲۳۴۵۶"
+                                    autocomplete="one-time-code"
+                                    required
+                                    autofocus>
+
+                                <div class="code-help">
+                                    کد ۶ رقمی ارسال‌شده به ایمیل را وارد کنید.
+                                </div>
+
+                            </div>
+
+
+                            <div class="d-grid">
+
+                                <button
+                                    type="submit"
+                                    class="btn btn-success">
+                                    تأیید ایمیل
+                                </button>
+
+                            </div>
+
+                        </form>
+
+
+                        <!-- Divider -->
+                        <div class="divider">
+                            <span>یا</span>
+                        </div>
+
+
+                        <!-- Resend Form -->
+                        <form
+                            method="post"
+                            action="/arvand-audio-store/public/verify-email/resend">
+
+                            <?= $csrfField ?? '' ?>
+
+                            <div class="d-grid">
+
+                                <button
+                                    type="submit"
+                                    class="btn btn-outline-secondary">
+                                    ارسال مجدد کد
+                                </button>
+
+                            </div>
+
+                        </form>
+
+
+                        <a
+                            href="/arvand-audio-store/public/"
+                            class="back-link">
+                            بازگشت به صفحه اصلی
+                        </a>
+
+                    </div>
+
+                </div>
+
             </div>
-        <?php endif; ?>
 
-        <?php if ($error): ?>
-            <div class="message message-error">
-                <?= $e($error) ?>
-            </div>
-        <?php endif; ?>
-
-        <!-- ====== FORM: VERIFY EMAIL ====== -->
-        <form method="post">
-
-            <?= $csrfField ?? '' ?>
-
-            <div class="form-group">
-                <label for="code">کد ارسال شده به ایمیل:</label>
-                <input
-                    type="text"
-                    id="code"
-                    name="code"
-                    maxlength="6"
-                    placeholder="مثلاً ۱۲۳۴۵۶"
-                    required
-                    autofocus
-                >
-            </div>
-
-            <button type="submit" class="btn btn-primary">
-                تایید ایمیل
-            </button>
-
-        </form>
-
-        <!-- ====== DIVIDER ====== -->
-        <hr class="divider">
-
-        <!-- ====== FORM: RESEND CODE ====== -->
-        <form method="post" action="/arvand-audio-store/public/verify-email/resend">
-
-            <?= $csrfField ?? '' ?>
-
-            <button type="submit" class="btn btn-secondary">
-                ارسال مجدد کد
-            </button>
-
-        </form>
+        </div>
 
     </div>
+
+
+    <script>
+        const codeInput = document.getElementById('code');
+
+        if (codeInput) {
+
+            codeInput.addEventListener('input', function() {
+
+                // فقط اعداد انگلیسی
+                this.value = this.value
+                    .replace(/[^0-9]/g, '')
+                    .slice(0, 6);
+
+            });
+
+        }
+    </script>
 
 </body>
 

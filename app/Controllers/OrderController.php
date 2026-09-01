@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Auth;
 use App\Core\Controller;
+use App\Core\Csrf;
 use App\Core\Session;
 use App\Models\Address;
 use App\Models\Order;
@@ -82,7 +83,51 @@ final class OrderController extends Controller
             'items' => $items,
 
             'address' => $address,
+            'csrfField' => Csrf::field(),
         ]);
+    }
+
+    /**
+     * لغو و حذف کامل سفارش توسط کاربر.
+     */
+    public function cancel(string $id): void
+    {
+        $user = $this->requireAuth();
+        $orderId = (int) $id;
+
+        if ($orderId <= 0) {
+            $this->notFound();
+        }
+
+        if (!Csrf::validate($_POST['_token'] ?? null)) {
+            Session::flash(
+                'error',
+                'درخواست امنیتی نامعتبر است.'
+            );
+
+            $this->redirect('/orders/' . $orderId);
+        }
+
+        try {
+            $this->orders->cancelForUser(
+                $orderId,
+                (int) $user['id']
+            );
+
+            Session::flash(
+                'success',
+                'سفارش با موفقیت لغو و حذف شد و موجودی کالاها به حالت قبل برگشت.'
+            );
+
+            $this->redirect('/account');
+        } catch (\Throwable $e) {
+            Session::flash(
+                'error',
+                $e->getMessage()
+            );
+
+            $this->redirect('/orders/' . $orderId);
+        }
     }
 
     /**

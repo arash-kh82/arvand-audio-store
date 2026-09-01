@@ -228,11 +228,26 @@ $flashError = \App\Core\Session::flash('error');
                                 <td>
 
                                     <a
-                                        href="/arvand-audio-store/public/admin/orders\<?= (int) $order['id'] ?>"
+                                        href="/arvand-audio-store/public/admin/orders/<?= (int) $order['id'] ?>"
                                         class="btn btn-sm btn-primary"
                                     >
                                         مشاهده
                                     </a>
+
+                                    <form
+                                        method="POST"
+                                        action="/arvand-audio-store/public/admin/orders/<?= (int) $order['id'] ?>/delete"
+                                        class="d-inline"
+                                        onsubmit="return confirm('هشدار: سفارش به طور کامل حذف می‌شود، پرداخت‌های آن حذف می‌شوند و موجودی کالاها برمی‌گردد. ادامه می‌دهید؟');"
+                                    >
+                                        <?= $csrfField ?>
+                                        <button
+                                            type="submit"
+                                            class="btn btn-sm btn-danger"
+                                        >
+                                            حذف کامل
+                                        </button>
+                                    </form>
 
                                 </td>
 

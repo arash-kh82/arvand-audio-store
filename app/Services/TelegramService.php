@@ -42,13 +42,26 @@ final class TelegramService
             'text' => $text,
         ];
 
+        /*
+         * ==============================
+         * Reply markup
+         * ==============================
+         */
         if ($replyMarkup !== null) {
-            $data['reply_markup'] =
-                json_encode(
-                    $replyMarkup,
-                    JSON_UNESCAPED_UNICODE
-                        | JSON_UNESCAPED_SLASHES
+            $encodedMarkup = json_encode(
+                $replyMarkup,
+                JSON_UNESCAPED_UNICODE
+                | JSON_UNESCAPED_SLASHES
+                | JSON_THROW_ON_ERROR
+            );
+
+            if (!is_string($encodedMarkup)) {
+                throw new RuntimeException(
+                    'Failed to encode Telegram reply markup.'
                 );
+            }
+
+            $data['reply_markup'] = $encodedMarkup;
         }
 
         return $this->request(
@@ -91,7 +104,10 @@ final class TelegramService
             'callback_query_id' => $callbackQueryId,
         ];
 
-        if ($text !== null && trim($text) !== '') {
+        if (
+            $text !== null
+            && trim($text) !== ''
+        ) {
             $data['text'] = $text;
         }
 
@@ -106,7 +122,9 @@ final class TelegramService
      */
     public function getMe(): array
     {
-        return $this->request('getMe');
+        return $this->request(
+            'getMe'
+        );
     }
 
     /**
@@ -190,10 +208,20 @@ final class TelegramService
                 CURLOPT_POST => true,
                 CURLOPT_POSTFIELDS => $data,
 
+                /*
+                 * بعضی سیستم‌ها با IPv6
+                 * برای Telegram مشکل دارند.
+                 */
                 CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
 
                 CURLOPT_TIMEOUT => 15,
                 CURLOPT_CONNECTTIMEOUT => 10,
+
+                /*
+                 * مشخص کردن User-Agent
+                 */
+                CURLOPT_USERAGENT =>
+                    'ArvandAudioStore-TelegramBot/1.0',
             ]
         );
 
@@ -206,15 +234,14 @@ final class TelegramService
 
             throw new RuntimeException(
                 'Telegram API request failed: '
-                    . $error
+                . $error
             );
         }
 
-        $httpCode =
-            (int) curl_getinfo(
-                $ch,
-                CURLINFO_HTTP_CODE
-            );
+        $httpCode = (int) curl_getinfo(
+            $ch,
+            CURLINFO_HTTP_CODE
+        );
 
         curl_close($ch);
 
@@ -223,15 +250,29 @@ final class TelegramService
             true
         );
 
+        /*
+         * ==============================
+         * Invalid JSON response
+         * ==============================
+         */
         if (
             !is_array($decoded)
             || !isset($decoded['ok'])
         ) {
             throw new RuntimeException(
                 'Invalid response from Telegram API.'
+                . "\nHTTP Code: "
+                . $httpCode
+                . "\nResponse: "
+                . $response
             );
         }
 
+        /*
+         * ==============================
+         * Telegram API error
+         * ==============================
+         */
         if (
             $httpCode < 200
             || $httpCode >= 300
@@ -243,9 +284,19 @@ final class TelegramService
                     ?? 'Unknown Telegram API error.'
                 );
 
+            $errorCode =
+                isset($decoded['error_code'])
+                    ? (string) $decoded['error_code']
+                    : 'unknown';
+
             throw new RuntimeException(
-                'Telegram API error: '
-                    . $description
+                'Telegram API error.'
+                . "\nError code: "
+                . $errorCode
+                . "\nDescription: "
+                . $description
+                . "\nHTTP code: "
+                . $httpCode
             );
         }
 

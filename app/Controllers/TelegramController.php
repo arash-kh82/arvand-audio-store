@@ -336,6 +336,12 @@ final class TelegramController extends Controller
                 ],
                 [
                     [
+                        'text' => '🚪 خروج از حساب',
+                        'callback_data' => 'account_logout',
+                    ],
+                ],
+                [
+                    [
                         'text' => '🛒 سبد خرید',
                         'callback_data' => 'cart',
                     ],
@@ -949,6 +955,77 @@ final class TelegramController extends Controller
 
         /*
          * ==============================
+         * Account logout
+         * ==============================
+         */
+        if ($data === 'account_logout') {
+            $linkedUserId =
+                $this->telegramUsers->getLinkedUserId(
+                    $telegramId
+                );
+
+            if ($linkedUserId === null) {
+                $this->telegram->sendMessage(
+                    $chatId,
+                    "ℹ️ حسابی به تلگرام شما متصل نیست.",
+                    [
+                        'inline_keyboard' => [
+                            [
+                                [
+                                    'text' => '🔐 اتصال حساب',
+                                    'callback_data' => 'account_link',
+                                ],
+                            ],
+                            [
+                                [
+                                    'text' => '🏠 منوی اصلی',
+                                    'callback_data' => 'main_menu',
+                                ],
+                            ],
+                        ],
+                    ]
+                );
+
+                return;
+            }
+
+            $this->telegramUsers->unlinkFromUser(
+                $telegramId
+            );
+
+            $this->sessions->clear(
+                $telegramId
+            );
+
+            $this->telegram->sendMessage(
+                $chatId,
+                "✅ با موفقیت از حساب فروشگاه خارج شدید.\n\n"
+                    . "🔐 اتصال حساب تلگرام شما حذف شد.\n\n"
+                    . "برای استفاده از امکانات خرید، "
+                    . "دوباره حساب خود را متصل کنید.",
+                [
+                    'inline_keyboard' => [
+                        [
+                            [
+                                'text' => '🔐 اتصال حساب',
+                                'callback_data' => 'account_link',
+                            ],
+                        ],
+                        [
+                            [
+                                'text' => '🏠 منوی اصلی',
+                                'callback_data' => 'main_menu',
+                            ],
+                        ],
+                    ],
+                ]
+            );
+
+            return;
+        }
+
+        /*
+         * ==============================
          * Checkout
          * ==============================
          */
@@ -1048,10 +1125,10 @@ final class TelegramController extends Controller
         }
 
         /*
- * ==============================
- * Order details
- * ==============================
- */
+         * ==============================
+         * Order details
+         * ==============================
+         */
         if (
             str_starts_with(
                 $data,
@@ -2042,181 +2119,11 @@ final class TelegramController extends Controller
         int $telegramId,
         int $addressId
     ): void {
-        $userId = $this->telegramUsers->getLinkedUserId(
-            $telegramId
-        );
-
-        if ($userId === null) {
-            $this->telegram->sendMessage(
-                $chatId,
-                "🔐 حساب تلگرام شما به حساب فروشگاه متصل نیست."
-            );
-
-            return;
-        }
-
-        $address = $this->addresses->findById(
-            $addressId,
-            $userId
-        );
-
-        if ($address === null) {
-            $this->telegram->sendMessage(
-                $chatId,
-                "❌ آدرس انتخاب‌شده معتبر نیست."
-            );
-
-            return;
-        }
-
-        $items = $this->cart->getItems(
-            $userId
-        );
-
-        if ($items === []) {
-            $this->telegram->sendMessage(
-                $chatId,
-                "🛒 سبد خرید شما خالی است."
-            );
-
-            return;
-        }
-
-        try {
-            $orderId = $this->orders->createFromCart(
-                $userId,
-                $addressId
-            );
-
-            $order = $this->orders->findById(
-                $orderId,
-                $userId
-            );
-
-            if ($order === null) {
-                throw new \RuntimeException(
-                    'Order was created but could not be loaded.'
-                );
-            }
-
-            $orderNumber = (string) (
-                $order['order_number']
-                ?? $orderId
-            );
-
-            $total = (float) (
-                $order['total']
-                ?? 0
-            );
-
-            $this->telegram->sendMessage(
-                $chatId,
-                "✅ سفارش شما با موفقیت ثبت شد! 🎉\n\n"
-                    . "🧾 شماره سفارش:\n"
-                    . "{$orderNumber}\n\n"
-                    . "💰 مبلغ سفارش:\n"
-                    . number_format(
-                        $total,
-                        0,
-                        '.',
-                        ','
-                    )
-                    . " تومان\n\n"
-                    . "📦 وضعیت سفارش: در انتظار پرداخت\n\n"
-                    . "از خرید شما از Arvand Audio Store سپاسگزاریم. 🎧",
-                [
-                    'inline_keyboard' => [
-                        [
-                            [
-                                'text' => '📦 سفارش‌های من',
-                                'callback_data' => 'orders',
-                            ],
-                        ],
-                        [
-                            [
-                                'text' => '🏠 منوی اصلی',
-                                'callback_data' => 'main_menu',
-                            ],
-                        ],
-                    ],
-                ]
-            );
-        } catch (Throwable $exception) {
-            $message = $exception->getMessage();
-
-            if (
-                str_contains(
-                    $message,
-                    'خالی'
-                )
-                || str_contains(
-                    $message,
-                    'موجودی'
-                )
-                || str_contains(
-                    $message,
-                    'فعال'
-                )
-            ) {
-                $this->telegram->sendMessage(
-                    $chatId,
-                    "❌ ثبت سفارش انجام نشد.\n\n"
-                        . $message,
-                    [
-                        'inline_keyboard' => [
-                            [
-                                [
-                                    'text' => '🛒 مشاهده سبد',
-                                    'callback_data' => 'cart',
-                                ],
-                            ],
-                            [
-                                [
-                                    'text' => '🏠 منوی اصلی',
-                                    'callback_data' => 'main_menu',
-                                ],
-                            ],
-                        ],
-                    ]
-                );
-
-                return;
-            }
-
-            $this->telegram->sendMessage(
-                $chatId,
-                "❌ هنگام ثبت سفارش خطایی رخ داد.\n\n"
-                    . "لطفاً دوباره تلاش کنید.",
-                [
-                    'inline_keyboard' => [
-                        [
-                            [
-                                'text' => '🛒 بازگشت به سبد',
-                                'callback_data' => 'cart',
-                            ],
-                        ],
-                        [
-                            [
-                                'text' => '🏠 منوی اصلی',
-                                'callback_data' => 'main_menu',
-                            ],
-                        ],
-                    ],
-                ]
-            );
-        }
-    }
-    /**
-     * Show Telegram user's orders.
+        /*
+     * ==============================
+     * Get linked website user
+     * ==============================
      */
-    /**
-     * Show Telegram user's order details.
-     */
-    private function showOrder(
-        int|string $chatId,
-        int $telegramId,
-        int $orderId
-    ): void {
         $userId = $this->telegramUsers->getLinkedUserId(
             $telegramId
         );
@@ -2247,7 +2154,166 @@ final class TelegramController extends Controller
         }
 
         /*
-     * Load order only for the linked user.
+     * ==============================
+     * Validate address
+     * ==============================
+     */
+        $address = $this->addresses->findById(
+            $addressId,
+            $userId
+        );
+
+        if ($address === null) {
+            $this->telegram->sendMessage(
+                $chatId,
+                "❌ آدرس انتخاب‌شده معتبر نیست.",
+                [
+                    'inline_keyboard' => [
+                        [
+                            [
+                                'text' => '📍 انتخاب آدرس',
+                                'callback_data' => 'checkout',
+                            ],
+                        ],
+                        [
+                            [
+                                'text' => '🏠 منوی اصلی',
+                                'callback_data' => 'main_menu',
+                            ],
+                        ],
+                    ],
+                ]
+            );
+
+            return;
+        }
+
+        /*
+     * ==============================
+     * Check cart
+     * ==============================
+     */
+        $items = $this->cart->getItems(
+            $userId
+        );
+
+        if ($items === []) {
+            $this->telegram->sendMessage(
+                $chatId,
+                "🛒 سبد خرید شما خالی است.\n\n"
+                    . "ابتدا یک محصول به سبد خرید اضافه کنید.",
+                [
+                    'inline_keyboard' => [
+                        [
+                            [
+                                'text' => '🔎 جستجوی محصولات',
+                                'callback_data' => 'products_search',
+                            ],
+                        ],
+                        [
+                            [
+                                'text' => '🏠 منوی اصلی',
+                                'callback_data' => 'main_menu',
+                            ],
+                        ],
+                    ],
+                ]
+            );
+
+            return;
+        }
+
+        /*
+     * ==============================
+     * Create order
+     * ==============================
+     *
+     * فقط عملیات ایجاد سفارش داخل
+     * این try/catch قرار دارد.
+     *
+     * اگر سفارش ایجاد شود، خطاهای بعدی
+     * نباید باعث نمایش پیام "سفارش ایجاد نشد"
+     * شوند.
+     */
+        try {
+            $orderId = $this->orders->createFromCart(
+                $userId,
+                $addressId
+            );
+        } catch (Throwable $exception) {
+            $message = $exception->getMessage();
+
+            /*
+         * ==============================
+         * User-friendly errors
+         * ==============================
+         */
+            if (
+                str_contains($message, 'خالی')
+                || str_contains($message, 'موجودی')
+                || str_contains($message, 'فعال')
+                || str_contains($message, 'نامعتبر')
+            ) {
+                $this->telegram->sendMessage(
+                    $chatId,
+                    "❌ ثبت سفارش انجام نشد.\n\n"
+                        . $message,
+                    [
+                        'inline_keyboard' => [
+                            [
+                                [
+                                    'text' => '🛒 مشاهده سبد',
+                                    'callback_data' => 'cart',
+                                ],
+                            ],
+                            [
+                                [
+                                    'text' => '🏠 منوی اصلی',
+                                    'callback_data' => 'main_menu',
+                                ],
+                            ],
+                        ],
+                    ]
+                );
+
+                return;
+            }
+
+            /*
+         * ==============================
+         * General order creation error
+         * ==============================
+         */
+            $this->telegram->sendMessage(
+                $chatId,
+                "❌ هنگام ثبت سفارش خطایی رخ داد.\n\n"
+                    . "سفارش ایجاد نشد و هیچ پرداختی انجام نشده است.\n\n"
+                    . "لطفاً دوباره تلاش کنید.",
+                [
+                    'inline_keyboard' => [
+                        [
+                            [
+                                'text' => '🛒 بازگشت به سبد',
+                                'callback_data' => 'cart',
+                            ],
+                        ],
+                        [
+                            [
+                                'text' => '🏠 منوی اصلی',
+                                'callback_data' => 'main_menu',
+                            ],
+                        ],
+                    ],
+                ]
+            );
+
+            return;
+        }
+
+        /*
+     * ==============================
+     * Load created order
+     * ==============================
      */
         $order = $this->orders->findById(
             $orderId,
@@ -2255,9 +2321,15 @@ final class TelegramController extends Controller
         );
 
         if ($order === null) {
+            /*
+         * سفارش ایجاد شده اما اطلاعات آن
+         * قابل بازیابی نیست.
+         */
             $this->telegram->sendMessage(
                 $chatId,
-                "❌ سفارش مورد نظر پیدا نشد یا متعلق به حساب شما نیست.",
+                "⚠️ سفارش شما ثبت شد، اما دریافت اطلاعات سفارش با مشکل مواجه شد.\n\n"
+                    . "🔢 شناسه سفارش: {$orderId}\n\n"
+                    . "لطفاً از بخش «سفارش‌های من» سفارش خود را بررسی کنید.",
                 [
                     'inline_keyboard' => [
                         [
@@ -2279,10 +2351,11 @@ final class TelegramController extends Controller
             return;
         }
 
-        $items = $this->orders->getItems(
-            $orderId
-        );
-
+        /*
+     * ==============================
+     * Order information
+     * ==============================
+     */
         $orderNumber = (string) (
             $order['order_number']
             ?? $orderId
@@ -2293,133 +2366,109 @@ final class TelegramController extends Controller
             ?? 0
         );
 
-        $status = trim(
-            (string) (
-                $order['status']
-                ?? ''
-            )
-        );
-
-        $paymentStatus = trim(
-            (string) (
-                $order['payment_status']
-                ?? ''
-            )
-        );
-
-        $createdAt = trim(
-            (string) (
-                $order['created_at']
-                ?? ''
-            )
-        );
-
-        $text =
-            "🧾 جزئیات سفارش\n\n";
-
-        $text .= "🔢 شماره سفارش: {$orderNumber}\n";
-
-        if ($createdAt !== '') {
-            $text .= "📅 تاریخ ثبت: {$createdAt}\n";
-        }
-
-        if ($status !== '') {
-            $text .= "📦 وضعیت سفارش: "
-                . $this->translateOrderStatus(
-                    $status
-                )
-                . "\n";
-        }
-
-        if ($paymentStatus !== '') {
-            $text .= "💳 وضعیت پرداخت: "
-                . $this->translatePaymentStatus(
-                    $paymentStatus
-                )
-                . "\n";
-        }
-
-        $text .= "\n🛍 کالاهای سفارش:\n\n";
-
-        if ($items === []) {
-            $text .= "اطلاعات کالاهای سفارش موجود نیست.\n";
-        } else {
-            foreach ($items as $item) {
-                $name = (string) (
-                    $item['product_name']
-                    ?? 'محصول'
-                );
-
-                $quantity = (int) (
-                    $item['quantity']
-                    ?? 0
-                );
-
-                $unitPrice = (float) (
-                    $item['price']
-                    ?? 0
-                );
-
-                $itemTotal = (float) (
-                    $item['total']
-                    ?? 0
-                );
-
-                $text .= "🎧 {$name}\n";
-                $text .= "🔢 تعداد: {$quantity}\n";
-                $text .= "💰 قیمت واحد: "
+        /*
+     * ==============================
+     * Send success message
+     * ==============================
+     *
+     * توجه:
+     * در این مرحله هیچ لینک پرداختی
+     * ساخته یا ارسال نمی‌شود.
+     *
+     * کاربر برای ادامه فرآیند خرید و
+     * پرداخت به سایت هدایت می‌شود.
+     */
+        try {
+            $this->telegram->sendMessage(
+                $chatId,
+                "✅ سفارش شما با موفقیت ثبت شد! 🎉\n\n"
+                    . "🧾 شماره سفارش:\n"
+                    . "{$orderNumber}\n\n"
+                    . "💰 مبلغ سفارش:\n"
                     . number_format(
-                        $unitPrice,
+                        $total,
                         0,
                         '.',
                         ','
                     )
-                    . " تومان\n";
-                $text .= "💵 مجموع: "
-                    . number_format(
-                        $itemTotal,
-                        0,
-                        '.',
-                        ','
-                    )
-                    . " تومان\n\n";
+                    . " تومان\n\n"
+                    . "📦 وضعیت سفارش: در انتظار پرداخت\n"
+                    . "💳 وضعیت پرداخت: در انتظار پرداخت\n\n"
+                    . "🌐 برای ادامه فرآیند خرید و پرداخت، "
+                    . "لطفاً به سایت فروشگاه مراجعه کنید.",
+                [
+                    'inline_keyboard' => [
+                        [
+                            [
+                                'text' => '📦 سفارش‌های من',
+                                'callback_data' => 'orders',
+                            ],
+                        ],
+                        [
+                            [
+                                'text' => '🏠 منوی اصلی',
+                                'callback_data' => 'main_menu',
+                            ],
+                        ],
+                    ],
+                ]
+            );
+        } catch (Throwable $exception) {
+            /*
+         * سفارش قبلاً ایجاد شده است.
+         *
+         * بنابراین اگر ارسال پیام با خطا مواجه شد،
+         * نباید به کاربر اعلام کنیم که سفارش ایجاد نشده.
+         */
+            try {
+                $this->telegram->sendMessage(
+                    $chatId,
+                    "✅ سفارش شما با موفقیت ثبت شد! 🎉\n\n"
+                        . "🧾 شماره سفارش:\n"
+                        . "{$orderNumber}\n\n"
+                        . "💰 مبلغ سفارش:\n"
+                        . number_format(
+                            $total,
+                            0,
+                            '.',
+                            ','
+                        )
+                        . " تومان\n\n"
+                        . "📦 وضعیت سفارش: در انتظار پرداخت\n"
+                        . "💳 وضعیت پرداخت: در انتظار پرداخت\n\n"
+                        . "🌐 برای ادامه فرآیند خرید و پرداخت، "
+                        . "لطفاً به سایت فروشگاه مراجعه کنید.",
+                    [
+                        'inline_keyboard' => [
+                            [
+                                [
+                                    'text' => '📦 سفارش‌های من',
+                                    'callback_data' => 'orders',
+                                ],
+                            ],
+                            [
+                                [
+                                    'text' => '🏠 منوی اصلی',
+                                    'callback_data' => 'main_menu',
+                                ],
+                            ],
+                        ],
+                    ]
+                );
+            } catch (Throwable $ignored) {
+                /*
+             * در صورت شکست ارسال مجدد پیام،
+             * دیگر کاری انجام نمی‌دهیم؛
+             * سفارش در دیتابیس ثبت شده است.
+             */
             }
         }
-
-        $text .= "━━━━━━━━━━━━━━\n";
-
-        $text .= "💰 مبلغ نهایی: "
-            . number_format(
-                $total,
-                0,
-                '.',
-                ','
-            )
-            . " تومان";
-
-        $keyboard = [
-            'inline_keyboard' => [
-                [
-                    [
-                        'text' => '🔙 سفارش‌های من',
-                        'callback_data' => 'orders',
-                    ],
-                ],
-                [
-                    [
-                        'text' => '🏠 منوی اصلی',
-                        'callback_data' => 'main_menu',
-                    ],
-                ],
-            ],
-        ];
-
-        $this->telegram->sendMessage(
-            $chatId,
-            $text,
-            $keyboard
-        );
     }
+
+
+    /**
+     * Show Telegram user's orders.
+     */
     private function showOrders(
         int|string $chatId,
         int $telegramId
@@ -2594,6 +2643,218 @@ final class TelegramController extends Controller
     }
 
     /**
+     * Show Telegram user's order details.
+     */
+    private function showOrder(
+        int|string $chatId,
+        int $telegramId,
+        int $orderId
+    ): void {
+        $userId = $this->telegramUsers->getLinkedUserId(
+            $telegramId
+        );
+
+        if ($userId === null) {
+            $this->telegram->sendMessage(
+                $chatId,
+                "🔐 حساب تلگرام شما به حساب فروشگاه متصل نیست.",
+                [
+                    'inline_keyboard' => [
+                        [
+                            [
+                                'text' => '🔐 اتصال حساب',
+                                'callback_data' => 'account_link',
+                            ],
+                        ],
+                        [
+                            [
+                                'text' => '🏠 منوی اصلی',
+                                'callback_data' => 'main_menu',
+                            ],
+                        ],
+                    ],
+                ]
+            );
+
+            return;
+        }
+
+        /*
+         * Load order only for the linked user.
+         */
+        $order = $this->orders->findById(
+            $orderId,
+            $userId
+        );
+
+        if ($order === null) {
+            $this->telegram->sendMessage(
+                $chatId,
+                "❌ سفارش مورد نظر پیدا نشد یا متعلق به حساب شما نیست.",
+                [
+                    'inline_keyboard' => [
+                        [
+                            [
+                                'text' => '📦 سفارش‌های من',
+                                'callback_data' => 'orders',
+                            ],
+                        ],
+                        [
+                            [
+                                'text' => '🏠 منوی اصلی',
+                                'callback_data' => 'main_menu',
+                            ],
+                        ],
+                    ],
+                ]
+            );
+
+            return;
+        }
+
+        $items = $this->orders->getItems(
+            $orderId
+        );
+
+        $orderNumber = (string) (
+            $order['order_number']
+            ?? $orderId
+        );
+
+        $total = (float) (
+            $order['total']
+            ?? 0
+        );
+
+        $status = trim(
+            (string) (
+                $order['status']
+                ?? ''
+            )
+        );
+
+        $paymentStatus = trim(
+            (string) (
+                $order['payment_status']
+                ?? ''
+            )
+        );
+
+        $createdAt = trim(
+            (string) (
+                $order['created_at']
+                ?? ''
+            )
+        );
+
+        $text =
+            "🧾 جزئیات سفارش\n\n";
+
+        $text .= "🔢 شماره سفارش: {$orderNumber}\n";
+
+        if ($createdAt !== '') {
+            $text .= "📅 تاریخ ثبت: {$createdAt}\n";
+        }
+
+        if ($status !== '') {
+            $text .= "📦 وضعیت سفارش: "
+                . $this->translateOrderStatus(
+                    $status
+                )
+                . "\n";
+        }
+
+        if ($paymentStatus !== '') {
+            $text .= "💳 وضعیت پرداخت: "
+                . $this->translatePaymentStatus(
+                    $paymentStatus
+                )
+                . "\n";
+        }
+
+        $text .= "\n🛍 کالاهای سفارش:\n\n";
+
+        if ($items === []) {
+            $text .= "اطلاعات کالاهای سفارش موجود نیست.\n";
+        } else {
+            foreach ($items as $item) {
+                $name = (string) (
+                    $item['product_name']
+                    ?? 'محصول'
+                );
+
+                $quantity = (int) (
+                    $item['quantity']
+                    ?? 0
+                );
+
+                $unitPrice = (float) (
+                    $item['price']
+                    ?? 0
+                );
+
+                $itemTotal = (float) (
+                    $item['total']
+                    ?? 0
+                );
+
+                $text .= "🎧 {$name}\n";
+                $text .= "🔢 تعداد: {$quantity}\n";
+                $text .= "💰 قیمت واحد: "
+                    . number_format(
+                        $unitPrice,
+                        0,
+                        '.',
+                        ','
+                    )
+                    . " تومان\n";
+                $text .= "💵 مجموع: "
+                    . number_format(
+                        $itemTotal,
+                        0,
+                        '.',
+                        ','
+                    )
+                    . " تومان\n\n";
+            }
+        }
+
+        $text .= "━━━━━━━━━━━━━━\n";
+
+        $text .= "💰 مبلغ نهایی: "
+            . number_format(
+                $total,
+                0,
+                '.',
+                ','
+            )
+            . " تومان";
+
+        $keyboard = [
+            'inline_keyboard' => [
+                [
+                    [
+                        'text' => '🔙 سفارش‌های من',
+                        'callback_data' => 'orders',
+                    ],
+                ],
+                [
+                    [
+                        'text' => '🏠 منوی اصلی',
+                        'callback_data' => 'main_menu',
+                    ],
+                ],
+            ],
+        ];
+
+        $this->telegram->sendMessage(
+            $chatId,
+            $text,
+            $keyboard
+        );
+    }
+
+    /**
      * Translate order status.
      */
     private function translateOrderStatus(
@@ -2619,6 +2880,7 @@ final class TelegramController extends Controller
     ): string {
         return match ($status) {
             'pending' => '⏳ در انتظار پرداخت',
+            'success' => '✅ پرداخت شده',
             'paid' => '✅ پرداخت شده',
             'failed' => '❌ ناموفق',
             'refunded' => '↩️ برگشت وجه',
